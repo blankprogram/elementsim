@@ -1,25 +1,22 @@
-import logo from './logo.svg';
+import React, { useState, useMemo } from 'react';
+import Canvas from './components/Canvas';
+import ElementSelector from './components/ElementSelector';
+import { SimulationManager } from './simulation/SimulationManager';
 import './App.css';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+const App = () => {
+    const [selectedElement, setSelectedElement] = useState('sand');
+
+    const simulationManager = useMemo(() => new SimulationManager(100, 100), []);
+
+    return (
+        <div className="app-container">
+            <ElementSelector selectedElement={selectedElement} onElementSelect={setSelectedElement} />
+            <div className="canvas-wrapper">
+                <Canvas simulationManager={simulationManager} selectedElement={selectedElement} />
+            </div>
+        </div>
+    );
+};
 
 export default App;
