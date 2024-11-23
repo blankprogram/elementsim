@@ -1,17 +1,22 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 const Canvas = ({ simulationManager, selectedElement }) => {
     const canvasRef = useRef(null);
     const isDrawingRef = useRef(false);
     const mousePositionRef = useRef({ x: 0, y: 0 });
     const spawnIntervalRef = useRef(null);
+    const selectedElementRef = useRef(selectedElement);
 
-    const addElementAtPosition = (x, y) => {
+    useEffect(() => {
+        selectedElementRef.current = selectedElement;
+    }, [selectedElement]);
+
+    const addElementAtPosition = useCallback((x, y) => {
         const grid = simulationManager.getGrid();
         if (x >= 0 && x < grid.length && y >= 0 && y < grid[0].length) {
-            simulationManager.addElement(x, y, selectedElement);
+            simulationManager.addElement(x, y, selectedElementRef.current);
         }
-    };
+    }, [simulationManager]);
 
     const getGridCoordinatesFromMouseEvent = (e) => {
         const canvas = canvasRef.current;
@@ -58,13 +63,8 @@ const Canvas = ({ simulationManager, selectedElement }) => {
         }
     };
 
-    const handleMouseUp = () => {
-        stopDrawing();
-    };
-
-    const handleMouseLeave = () => {
-        stopDrawing();
-    };
+    const handleMouseUp = () => stopDrawing();
+    const handleMouseLeave = () => stopDrawing();
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -80,7 +80,7 @@ const Canvas = ({ simulationManager, selectedElement }) => {
             document.removeEventListener('mouseup', handleMouseUp);
             if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
         };
-    }, [simulationManager, selectedElement]);
+    }, [handleMouseDown, handleMouseMove, handleMouseLeave, handleMouseUp]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

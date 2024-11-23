@@ -21,6 +21,18 @@ const ElementSelector = ({ selectedElement, onElementSelect }) => {
             >
                 Water
             </button>
+            <button
+                style={{ backgroundColor: selectedElement === 'steam' ? 'grey' : 'white' }}
+                onClick={() => onElementSelect('steam')}
+            >
+                Steam
+            </button>
+            <button
+                style={{ backgroundColor: selectedElement === 'wall' ? 'white' : 'white' }}
+                onClick={() => onElementSelect('wall')}
+            >
+                Wall
+            </button>
         </div>
     );
 };

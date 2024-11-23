@@ -1,6 +1,8 @@
 import { Sand } from '../elements/Sand';
 import { Fire } from '../elements/Fire';
 import { Water } from '../elements/Water';
+import { Steam } from '../elements/Steam';
+import { Wall } from '../elements/Wall';
 
 export class Grid {
     constructor(width, height) {
@@ -21,6 +23,12 @@ export class Grid {
                 this.grid[x][y] = new Fire(x, y);
             } else if (elementType === 'water') {
                 this.grid[x][y] = new Water(x, y);
+            }
+            else if (elementType === 'steam') {
+                this.grid[x][y] = new Steam(x, y);
+            }
+            else if (elementType === 'wall') {
+                this.grid[x][y] = new Wall(x, y);
             }
         }
     }
