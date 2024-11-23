@@ -1,21 +1,33 @@
 import { Grid } from './Grid';
 
 export class SimulationManager {
-    constructor(width, height) {
+    constructor(width, height, tickRate = 60) {
         this.grid = new Grid(width, height);
         this.isRunning = true;
+        this.tickRate = tickRate;
+        this.intervalId = null;
         this.start();
     }
 
     start() {
-        this.run();
+        if (this.isRunning && !this.intervalId) {
+            this.intervalId = setInterval(() => {
+                this.grid.updateElements();
+            }, 1000 / this.tickRate);
+        }
     }
 
-    run() {
-        if (this.isRunning) {
-            this.grid.updateElements();
-            requestAnimationFrame(this.run.bind(this));
+    stop() {
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
         }
+    }
+
+    setTickRate(newTickRate) {
+        this.stop();
+        this.tickRate = newTickRate;
+        this.start();
     }
 
     addElement(x, y, elementType) {

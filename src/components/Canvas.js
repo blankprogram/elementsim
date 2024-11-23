@@ -18,7 +18,7 @@ const Canvas = ({ simulationManager, selectedElement }) => {
         }
     }, [simulationManager]);
 
-    const getGridCoordinatesFromMouseEvent = (e) => {
+    const getGridCoordinatesFromMouseEvent = useCallback((e) => {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
         const grid = simulationManager.getGrid();
@@ -29,42 +29,45 @@ const Canvas = ({ simulationManager, selectedElement }) => {
         const y = Math.floor((e.clientY - rect.top) / cellSizeY);
 
         return { x, y };
-    };
+    }, [simulationManager]);
 
-    const startDrawing = () => {
+    const startDrawing = useCallback(() => {
         spawnIntervalRef.current = setInterval(() => {
             if (isDrawingRef.current) {
                 const { x, y } = mousePositionRef.current;
                 addElementAtPosition(x, y);
             }
         }, 50);
-    };
+    }, [addElementAtPosition]);
 
-    const handleMouseDown = (e) => {
-        isDrawingRef.current = true;
-        const { x, y } = getGridCoordinatesFromMouseEvent(e);
-        mousePositionRef.current = { x, y };
-        addElementAtPosition(x, y);
-        startDrawing();
-    };
+    const handleMouseDown = useCallback(
+        (e) => {
+            isDrawingRef.current = true;
+            const { x, y } = getGridCoordinatesFromMouseEvent(e);
+            mousePositionRef.current = { x, y };
+            addElementAtPosition(x, y);
+            startDrawing();
+        },
+        [addElementAtPosition, getGridCoordinatesFromMouseEvent, startDrawing]
+    );
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = useCallback((e) => {
         if (isDrawingRef.current) {
             const { x, y } = getGridCoordinatesFromMouseEvent(e);
             mousePositionRef.current = { x, y };
         }
-    };
+    }, [getGridCoordinatesFromMouseEvent]);
 
-    const stopDrawing = () => {
+    const stopDrawing = useCallback(() => {
         isDrawingRef.current = false;
         if (spawnIntervalRef.current) {
             clearInterval(spawnIntervalRef.current);
             spawnIntervalRef.current = null;
         }
-    };
+    }, []);
 
-    const handleMouseUp = () => stopDrawing();
-    const handleMouseLeave = () => stopDrawing();
+    const handleMouseUp = useCallback(() => stopDrawing(), [stopDrawing]);
+    const handleMouseLeave = useCallback(() => stopDrawing(), [stopDrawing]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

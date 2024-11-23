@@ -1,38 +1,22 @@
 import React from 'react';
+import { ElementRegistry } from '../elements/ElementRegistry';
 
 const ElementSelector = ({ selectedElement, onElementSelect }) => {
     return (
         <div style={{ marginBottom: '10px' }}>
-            <button
-                style={{ backgroundColor: selectedElement === 'sand' ? 'yellow' : 'white' }}
-                onClick={() => onElementSelect('sand')}
-            >
-                Sand
-            </button>
-            <button
-                style={{ backgroundColor: selectedElement === 'fire' ? 'red' : 'white' }}
-                onClick={() => onElementSelect('fire')}
-            >
-                Fire
-            </button>
-            <button
-                style={{ backgroundColor: selectedElement === 'water' ? 'blue' : 'white' }}
-                onClick={() => onElementSelect('water')}
-            >
-                Water
-            </button>
-            <button
-                style={{ backgroundColor: selectedElement === 'steam' ? 'grey' : 'white' }}
-                onClick={() => onElementSelect('steam')}
-            >
-                Steam
-            </button>
-            <button
-                style={{ backgroundColor: selectedElement === 'wall' ? 'white' : 'white' }}
-                onClick={() => onElementSelect('wall')}
-            >
-                Wall
-            </button>
+            {Object.entries(ElementRegistry).map(([key, element]) => (
+                <button
+                    key={key}
+                    style={{
+                        backgroundColor: selectedElement === key ? element.color : 'white',
+                        color: selectedElement === key ? 'black' : 'inherit',
+                        margin: '5px',
+                    }}
+                    onClick={() => onElementSelect(key)}
+                >
+                    {element.label}
+                </button>
+            ))}
         </div>
     );
 };

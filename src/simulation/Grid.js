@@ -1,8 +1,4 @@
-import { Sand } from '../elements/Sand';
-import { Fire } from '../elements/Fire';
-import { Water } from '../elements/Water';
-import { Steam } from '../elements/Steam';
-import { Wall } from '../elements/Wall';
+import { ElementRegistry } from './../elements/ElementRegistry';
 
 export class Grid {
     constructor(width, height) {
@@ -17,18 +13,9 @@ export class Grid {
 
     addElement(x, y, elementType) {
         if (!this.grid[x][y]) {
-            if (elementType === 'sand') {
-                this.grid[x][y] = new Sand(x, y);
-            } else if (elementType === 'fire') {
-                this.grid[x][y] = new Fire(x, y);
-            } else if (elementType === 'water') {
-                this.grid[x][y] = new Water(x, y);
-            }
-            else if (elementType === 'steam') {
-                this.grid[x][y] = new Steam(x, y);
-            }
-            else if (elementType === 'wall') {
-                this.grid[x][y] = new Wall(x, y);
+            const elementInfo = ElementRegistry[elementType];
+            if (elementInfo) {
+                this.grid[x][y] = new elementInfo.class(x, y);
             }
         }
     }
@@ -48,4 +35,3 @@ export class Grid {
         return this.grid;
     }
 }
-
