@@ -6,7 +6,7 @@ const MAX_BRUSH_SIZE = 20;
 const MIN_BRUSH_SIZE = 1;
 
 function App() {
-  const [selectedElement, setSelectedElement] = useState("SAND"); // Default element is "SAND"
+  const [selectedElement, setSelectedElement] = useState("SAND");
   const [brushSize, setBrushSize] = useState(1);
 
   const handleScroll = (e) => {
@@ -34,7 +34,7 @@ function App() {
       </div>
       <WebGLGrid
         rows={100}
-        cols={100}
+        cols={170}
         selectedElement={selectedElement}
         brushSize={brushSize}
       />

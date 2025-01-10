@@ -1,15 +1,15 @@
-import React, {useEffect, useRef, useState} from 'react';
-
+import React, { useEffect, useRef, useState } from 'react';
 import ElementType from '../elements/ElementType';
 import Empty from '../elements/EmptyCell';
-import {initializeWebGL} from '../utils/utils';
+import { initializeWebGL } from '../utils/utils';
 
-const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
+const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const selectedElementRef = useRef(selectedElement);
   const brushSizeRef = useRef(brushSize);
   const isMouseDown = useRef(false);
+  const mouseButton = useRef(null);
 
   const [mousePosition, setMousePosition] = useState({ x: null, y: null });
 
@@ -26,9 +26,6 @@ const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
     const overlayCtx = overlayCanvas.getContext('2d');
     drawBrushOutline(overlayCtx, mousePosition.x, mousePosition.y, brushSize, 10);
   }, [mousePosition, brushSize]);
-
-
-
 
   const createGrid = (width, height) => {
     const grid = Array.from({ length: height }, () =>
@@ -73,15 +70,18 @@ const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
 
   const drawBrushOutline = (ctx, x, y, size, cellSize) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(
-      x * cellSize - Math.floor(size / 2) * cellSize,
-      y * cellSize - Math.floor(size / 2) * cellSize,
-      size * cellSize,
-      size * cellSize
-    );
+    if (x !== null && y !== null) {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        x * cellSize - Math.floor(size / 2) * cellSize,
+        y * cellSize - Math.floor(size / 2) * cellSize,
+        size * cellSize,
+        size * cellSize
+      );
+    }
   };
+  
 
   useEffect(() => {
     const webGLCanvas = webGLCanvasRef.current;
@@ -101,17 +101,18 @@ const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
       });
     };
 
-    const spawnElement = (x, y) => {
+    const spawnElement = (x, y, ElementClass) => {
       const halfSize = Math.floor(brushSizeRef.current / 2);
       for (let dy = -halfSize; dy <= halfSize; dy++) {
         for (let dx = -halfSize; dx <= halfSize; dx++) {
-          simulation.set(x + dx, y + dy, ElementType[selectedElementRef.current]);
+          simulation.set(x + dx, y + dy, ElementClass);
         }
       }
     };
 
-    const handleMouseDown = () => {
+    const handleMouseDown = (event) => {
       isMouseDown.current = true;
+      mouseButton.current = event.button;
     };
 
     const handleMouseMove = (event) => {
@@ -122,17 +123,21 @@ const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
       setMousePosition({ x, y });
 
       if (isMouseDown.current) {
-        spawnElement(x, y);
+        const ElementClass = mouseButton.current === 0 ? ElementType[selectedElementRef.current] : Empty;
+        spawnElement(x, y, ElementClass);
       }
     };
 
     const handleMouseUp = () => {
       isMouseDown.current = false;
+      mouseButton.current = null;
     };
 
     overlayCanvas.addEventListener('mousedown', handleMouseDown);
     overlayCanvas.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+
+    overlayCanvas.addEventListener('contextmenu', (event) => event.preventDefault()); // Disable right-click menu
 
     const render = () => {
       simulate(simulation);
@@ -145,7 +150,7 @@ const WebGLGrid = ({rows, cols, selectedElement, brushSize}) => {
   }, [rows, cols]);
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div >
       <canvas
         ref={webGLCanvasRef}
         width={cols * 10}
