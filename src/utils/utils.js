@@ -19,8 +19,7 @@ export const initializeWebGL = (canvas, gridWidth, gridHeight) => {
 
       void main() {
         vec4 cellState = texture2D(stateTexture, uv);
-
-        // Render the cell's color or black for empty pixels
+        
         gl_FragColor = cellState.a > 0.0 ? cellState : vec4(0.0, 0.0, 0.0, 1.0);
       }
     `,
@@ -29,7 +28,7 @@ export const initializeWebGL = (canvas, gridWidth, gridHeight) => {
       varying vec2 uv;
 
       void main() {
-        uv = 0.5 * (position + 1.0); // Map position to UV coordinates
+        uv = 0.5 * (position + 1.0);
         gl_Position = vec4(position, 0, 1);
       }
     `,
