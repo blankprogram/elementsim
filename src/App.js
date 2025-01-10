@@ -6,11 +6,10 @@ const MAX_BRUSH_SIZE = 20;
 const MIN_BRUSH_SIZE = 1;
 
 function App() {
-  const [selectedElement, setSelectedElement] = useState("SAND");
+  const [selectedElement, setSelectedElement] = useState("SAND"); // Default element is "SAND"
   const [brushSize, setBrushSize] = useState(1);
 
   const handleScroll = (e) => {
-    console.log(brushSize)
     setBrushSize((prevSize) =>
       Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 1 : -1)))
     );
