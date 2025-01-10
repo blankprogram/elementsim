@@ -1,165 +1,180 @@
 import React, { useEffect, useRef } from "react";
 import { initializeWebGL } from "../utils/utils";
-import { Element, MovableSolid, Liquid, ImmovableSolid, Gas } from "../element/Element";
+import Sand from "../elements/solid/moveable/Sand";
+import Dirt from "../elements/solid/moveable/Dirt";
+import Stone from "../elements/solid/immoveable/Stone";
+import Brick from "../elements/solid/immoveable/Brick";
+import Water from "../elements/liquid/Water";
+import Helium from "../elements/gas/Helium";
+import ElementType from "../elements/ElementType";
 
 const ELEMENTS = {
-  EMPTY: new Element(0, [0, 0, 0, 0]),
-  SAND: new MovableSolid(1, [255, 255, 0, 255]),
-  WATER: new Liquid(2, [0, 0, 255, 255]),
-  STONE: new ImmovableSolid(3, [128, 128, 128, 255]),
-  GAS: new Gas(4, [200, 200, 200, 255]),
+  EMPTY: null,
+  SAND: new Sand(),
+  DIRT: new Dirt(),
+  WATER: new Water(),
+  STONE: new Stone(),
+  BRICK: new Brick(),
+  HELIUM: new Helium(),
 };
 
-const WebGLGrid = ({ rows, cols, selectedElement }) => {
-  const canvasRef = useRef(null);
-  const spawnPosition = useRef(null);
-  const spawnInterval = useRef(null);
+const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
+  const webGLCanvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   const selectedElementRef = useRef(selectedElement);
+  const brushSizeRef = useRef(brushSize);
+  const isMouseDown = useRef(false);
+  const lastMousePosition = useRef({ x: null, y: null });
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
   }, [selectedElement]);
 
+  useEffect(() => {
+    brushSizeRef.current = brushSize;
+    const overlayCanvas = overlayCanvasRef.current;
+    const overlayCtx = overlayCanvas.getContext("2d");
+
+    if (lastMousePosition.current.x !== null && lastMousePosition.current.y !== null) {
+      const { x, y } = lastMousePosition.current;
+      drawBrushOutline(overlayCtx, x, y, brushSize, 10);
+    }
+  }, [brushSize]);
+
   const createGrid = (width, height) => {
-    const grid = new Uint8Array(width * height).fill(ELEMENTS.EMPTY.id);
+    const grid = Array.from({ length: height }, () => Array(width).fill(ElementType.EMPTY));
     const colorBuffer = new Uint8Array(width * height * 4).fill(0);
-  
-    const get = (x, y) =>
-      x >= 0 && x < width && y >= 0 && y < height ? grid[y * width + x] : ELEMENTS.EMPTY.id;
-  
-    const set = (x, y, value) => {
+
+    const get = (x, y) => (x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : ElementType.EMPTY);
+
+    const set = (x, y, elementType) => {
       if (x >= 0 && x < width && y >= 0 && y < height) {
-        grid[y * width + x] = value;
-  
+        grid[y][x] = elementType;
+
         const index = (y * width + x) * 4;
-        const element = Object.values(ELEMENTS).find((e) => e.id === value);
-  
-        if (element) {
-          const color = element.getColor();
-          colorBuffer.set(color, index);
-        } else {
-          colorBuffer.set([0, 0, 0, 0], index);
-        }
+        const element = ELEMENTS[elementType];
+        const color = element ? element.getColor() : [0, 0, 0, 0];
+        colorBuffer.set(color, index);
       }
     };
-  
+
     return { grid, colorBuffer, get, set, width, height };
   };
-  
-  
 
   const simulate = (grid) => {
-    const updated = new Set();
+    const processed = Array.from({ length: grid.height }, () => Array(grid.width).fill(false));
+  
     for (let y = grid.height - 1; y >= 0; y--) {
       for (let x = 0; x < grid.width; x++) {
-        const key = `${x},${y}`;
-        if (updated.has(key)) continue;
+        if (!processed[y][x]) {
+          const elementType = grid.get(x, y);
+          const element = ELEMENTS[elementType];
+          if (element && elementType !== ElementType.EMPTY) {
+            const setWithProcessing = (setX, setY, value) => {
+              if (setX >= 0 && setX < grid.width && setY >= 0 && setY < grid.height) {
+                grid.set(setX, setY, value);
+                processed[setY][setX] = true;
+              }
+            };
   
-        const elementId = grid.get(x, y);
-        const element = Object.values(ELEMENTS).find((e) => e.id === elementId);
-  
-        if (element && !(element instanceof Gas)) {
-          const previousState = { x, y };
-          element.behavior(x, y, grid, grid.set);
-
-          if (grid.get(previousState.x, previousState.y) !== elementId) {
-            updated.add(`${previousState.x},${previousState.y}`);
-            updated.add(`${x},${y}`);
-          }
-        }
-      }
-    }
-  
-    for (let y = 0; y < grid.height; y++) {
-      for (let x = 0; x < grid.width; x++) {
-        const key = `${x},${y}`;
-        if (updated.has(key)) continue;
-  
-        const elementId = grid.get(x, y);
-        const element = Object.values(ELEMENTS).find((e) => e.id === elementId);
-  
-        if (element && element instanceof Gas) {
-          const previousState = { x, y };
-          element.behavior(x, y, grid, grid.set);
-  
-          if (grid.get(previousState.x, previousState.y) !== elementId) {
-            updated.add(`${previousState.x},${previousState.y}`);
-            updated.add(`${x},${y}`);
+            element.behavior(x, y, grid, setWithProcessing);
+            processed[y][x] = true;
           }
         }
       }
     }
   };
   
-  
+
+  const drawBrushOutline = (ctx, x, y, size, cellSize) => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      x * cellSize - (Math.floor(size / 2) * cellSize),
+      y * cellSize - (Math.floor(size / 2) * cellSize),
+      size * cellSize,
+      size * cellSize
+    );
+  };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const webGLCanvas = webGLCanvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    const overlayCtx = overlayCanvas.getContext("2d");
     const gridWidth = cols;
     const gridHeight = rows;
 
-    const { texture, drawGrid } = initializeWebGL(canvas, gridWidth, gridHeight);
+    const { texture, drawGrid } = initializeWebGL(webGLCanvas, gridWidth, gridHeight);
     const simulation = createGrid(gridWidth, gridHeight);
-    const gridData = new Uint8Array(gridWidth * gridHeight * 4).fill(0);
 
-    const updateTexture = (texture, colorBuffer, width, height) => {
-      texture.subimage({
-        data: colorBuffer,
-        width,
-        height,
-        flipY: true,
-      });
+    const updateTexture = () => {
+      texture.subimage({ data: simulation.colorBuffer, width: gridWidth, height: gridHeight, flipY: true });
     };
 
-    const spawnElement = () => {
-      const { x, y } = spawnPosition.current || {};
-      if (x !== undefined && y !== undefined) {
-        simulation.set(x, y, selectedElementRef.current);
+    const spawnElement = (x, y) => {
+      const halfSize = Math.floor(brushSizeRef.current / 2);
+
+      for (let dy = -halfSize; dy <= halfSize; dy++) {
+        for (let dx = -halfSize; dx <= halfSize; dx++) {
+          const spawnX = x + dx;
+          const spawnY = y + dy;
+          simulation.set(spawnX, spawnY, selectedElementRef.current);
+        }
       }
     };
 
-    const handleMouseDown = (event) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.floor(((event.clientX - rect.left) / rect.width) * gridWidth);
-      const y = Math.floor(((event.clientY - rect.top) / rect.height) * gridHeight);
-      spawnPosition.current = { x, y };
-      spawnElement();
-      spawnInterval.current = setInterval(spawnElement, 50);
+    const handleMouseDown = () => {
+      isMouseDown.current = true;
     };
 
     const handleMouseMove = (event) => {
-      if (spawnInterval.current) {
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.floor(((event.clientX - rect.left) / rect.width) * gridWidth);
-        const y = Math.floor(((event.clientY - rect.top) / rect.height) * gridHeight);
-        spawnPosition.current = { x, y };
+      const rect = overlayCanvas.getBoundingClientRect();
+      const x = Math.floor(((event.clientX - rect.left) / rect.width) * gridWidth);
+      const y = Math.floor(((event.clientY - rect.top) / rect.height) * gridHeight);
+
+      lastMousePosition.current = { x, y };
+      drawBrushOutline(overlayCtx, x, y, brushSizeRef.current, 10);
+
+      if (isMouseDown.current) {
+        spawnElement(x, y);
       }
     };
 
     const handleMouseUp = () => {
-      clearInterval(spawnInterval.current);
-      spawnInterval.current = null;
-      spawnPosition.current = null;
+      isMouseDown.current = false;
     };
 
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("mousemove", handleMouseMove);
+    overlayCanvas.addEventListener("mousedown", handleMouseDown);
+    overlayCanvas.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
 
     const render = () => {
       simulate(simulation);
-      updateTexture(texture, simulation.colorBuffer, gridWidth, gridHeight);
+      updateTexture();
       drawGrid();
       requestAnimationFrame(render);
     };
-    
 
     render();
-
-    return () => clearInterval(spawnInterval.current);
   }, [rows, cols]);
 
-  return <canvas ref={canvasRef} width={cols * 10} height={rows * 10} />;
+  return (
+    <div style={{ position: "relative" }}>
+      <canvas
+        ref={webGLCanvasRef}
+        width={cols * 10}
+        height={rows * 10}
+        style={{ position: "absolute", zIndex: 1 }}
+      />
+      <canvas
+        ref={overlayCanvasRef}
+        width={cols * 10}
+        height={rows * 10}
+        style={{ position: "absolute", zIndex: 2 }}
+      />
+    </div>
+  );
 };
 
 export default WebGLGrid;
