@@ -24,8 +24,8 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   useEffect(() => {
     const overlayCanvas = overlayCanvasRef.current;
     const overlayCtx = overlayCanvas.getContext('2d');
-    drawBrushOutline(overlayCtx, mousePosition.x, mousePosition.y, brushSize, 10);
-  }, [mousePosition, brushSize]);
+    drawBrushOutline(overlayCtx, mousePosition, brushSize, 10, selectedElement);
+  }, [mousePosition, brushSize, selectedElement]);
 
   const createGrid = (width, height) => {
     const grid = Array.from({ length: height }, () =>
@@ -54,13 +54,12 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
         if (!processed[y][x]) {
           const element = grid.get(x, y);
           if (element) {
-            const setWithProcessing = (setX, setY, ElementClass) => {
+            element.behavior(x, y, grid, (setX, setY, ElementClass) => {
               if (setX >= 0 && setX < grid.width && setY >= 0 && setY < grid.height) {
                 grid.set(setX, setY, ElementClass);
                 processed[setY][setX] = true;
               }
-            };
-            element.behavior(x, y, grid, setWithProcessing);
+            });
             processed[y][x] = true;
           }
         }
@@ -68,62 +67,88 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
     }
   };
 
-  const drawBrushOutline = (ctx, x, y, size, cellSize) => {
+  const drawBrushOutline = (ctx, position, radius, cellSize, selectedElement) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    if (x !== null && y !== null) {
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(
-        x * cellSize - Math.floor(size / 2) * cellSize,
-        y * cellSize - Math.floor(size / 2) * cellSize,
-        size * cellSize,
-        size * cellSize
-      );
+  
+    if (position.x !== null && position.y !== null) {
+      const centerX = position.x;
+      const centerY = position.y;
+      const isDeleting = selectedElement === 'EMPTY';
+      const borderColor = isDeleting ? 'red' : 'blue';
+  
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+  
+      for (let y = -radius; y <= radius; y++) {
+        for (let x = -radius; x <= radius; x++) {
+          const distSquared = x * x + y * y;
+          const withinCircle = distSquared <= radius * radius;
+          const outsideInnerCircle = distSquared > (radius - 1) * (radius - 1);
+  
+          if (withinCircle && outsideInnerCircle) {
+            const cellX = (centerX + x) * cellSize;
+            const cellY = (centerY + y) * cellSize;
+            ctx.beginPath();
+            ctx.moveTo(cellX, cellY);
+            ctx.lineTo(cellX + cellSize, cellY);
+            ctx.stroke();
+  
+            ctx.beginPath();
+            ctx.moveTo(cellX, cellY);
+            ctx.lineTo(cellX, cellY + cellSize);
+            ctx.stroke();
+          }
+        }
+      }
     }
   };
   
 
+
   useEffect(() => {
     const webGLCanvas = webGLCanvasRef.current;
     const overlayCanvas = overlayCanvasRef.current;
-    const gridWidth = cols;
-    const gridHeight = rows;
-
-    const { texture, drawGrid } = initializeWebGL(webGLCanvas, gridWidth, gridHeight);
-    const simulation = createGrid(gridWidth, gridHeight);
+    const { texture, drawGrid } = initializeWebGL(webGLCanvas, cols, rows);
+    const simulation = createGrid(cols, rows);
 
     const updateTexture = () => {
       texture.subimage({
         data: simulation.colorBuffer,
-        width: gridWidth,
-        height: gridHeight,
+        width: cols,
+        height: rows,
         flipY: true,
       });
     };
 
-    const spawnElement = (x, y, ElementClass) => {
-      const halfSize = Math.floor(brushSizeRef.current / 2);
-      for (let dy = -halfSize; dy <= halfSize; dy++) {
-        for (let dx = -halfSize; dx <= halfSize; dx++) {
-          simulation.set(x + dx, y + dy, ElementClass);
+    const spawnElement = (centerX, centerY, ElementClass) => {
+      const radius = brushSizeRef.current;
+      for (let y = -radius; y <= radius; y++) {
+        for (let x = -radius; x <= radius; x++) {
+          const distSquared = x * x + y * y;
+          if (distSquared <= radius * radius) {
+            simulation.set(centerX + x, centerY + y, ElementClass);
+          }
         }
       }
     };
 
     const handleMouseDown = (event) => {
-      isMouseDown.current = true;
-      mouseButton.current = event.button;
+      if (event.button === 0) {
+        isMouseDown.current = true;
+        mouseButton.current = event.button;
+      }
+      
     };
 
     const handleMouseMove = (event) => {
       const rect = overlayCanvas.getBoundingClientRect();
-      const x = Math.floor(((event.clientX - rect.left) / rect.width) * gridWidth);
-      const y = Math.floor(((event.clientY - rect.top) / rect.height) * gridHeight);
-
+      const x = Math.floor(((event.clientX - rect.left) / rect.width) * cols);
+      const y = Math.floor(((event.clientY - rect.top) / rect.height) * rows);
       setMousePosition({ x, y });
 
       if (isMouseDown.current) {
-        const ElementClass = mouseButton.current === 0 ? ElementType[selectedElementRef.current] : Empty;
+        const ElementClass =
+          selectedElement === 'Empty' ? Empty : ElementType[selectedElementRef.current];
         spawnElement(x, y, ElementClass);
       }
     };
@@ -136,8 +161,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
     overlayCanvas.addEventListener('mousedown', handleMouseDown);
     overlayCanvas.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-
-    overlayCanvas.addEventListener('contextmenu', (event) => event.preventDefault()); // Disable right-click menu
+    overlayCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     const render = () => {
       simulate(simulation);
@@ -150,7 +174,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   }, [rows, cols]);
 
   return (
-    <div >
+    <div>
       <canvas
         ref={webGLCanvasRef}
         width={cols * 10}
