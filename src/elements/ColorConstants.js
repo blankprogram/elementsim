@@ -32,6 +32,7 @@ const ColorConstants = {
   WATER: [[28, 85, 234, 255]],
   
   HELIUM: [[174, 174, 174, 255]],
+  
   EMPTY: [[0, 0, 0, 0]],
   
   getColor(type) {

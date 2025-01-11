@@ -3,7 +3,6 @@ import ElementType from '../elements/ElementType';
 import Empty from '../elements/EmptyCell';
 import { initializeWebGL } from '../utils/utils';
 
-// Each cell is drawn as 10x10 in the default view
 const CELL_SIZE = 10;
 
 const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
@@ -43,38 +42,92 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
     const get = (x, y) =>
       x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new Empty();
 
-    const set = (x, y, ElementClass) => {
-      if (x >= 0 && x < width && y >= 0 && y < height) {
-        grid[y][x] = ElementClass ? new ElementClass() : new Empty();
-        const index = (y * width + x) * 4;
-        colorBuffer.set(grid[y][x].getColor(), index);
+    const move = (fromX, fromY, toX, toY) => {
+      if (
+        fromX >= 0 &&
+        fromX < width &&
+        fromY >= 0 &&
+        fromY < height &&
+        toX >= 0 &&
+        toX < width &&
+        toY >= 0 &&
+        toY < height &&
+        (fromX !== toX || fromY !== toY)
+      ) {
+        const temp = grid[toY][toX];
+        grid[toY][toX] = grid[fromY][fromX];
+        grid[fromY][fromX] = temp;
+
+        const fromIndex = (fromY * width + fromX) * 4;
+        const toIndex = (toY * width + toX) * 4;
+
+        colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
+        colorBuffer.set(grid[toY][toX].getColor(), toIndex);
       }
     };
 
-    return { grid, colorBuffer, get, set, width, height };
+
+
+    const set = (x, y, ElementClass) => {
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        if (ElementClass) {
+          grid[y][x] = new ElementClass();
+          const index = (y * width + x) * 4;
+          colorBuffer.set(grid[y][x].getColor(), index);
+        }
+      }
+    };
+
+    return { grid, colorBuffer, get, set, move, width, height };
   };
+
 
   /**
    * Run the sand/water simulation step.
    */
   const simulate = (sim) => {
-    const { get, set, width, height } = sim;
+    const { get, width, height, move } = sim;
     const processed = Array.from({ length: height }, () =>
       Array(width).fill(false)
     );
 
-    for (let y = height - 1; y >= 0; y--) {
-      for (let x = 0; x < width; x++) {
-        if (!processed[y][x]) {
-          const element = get(x, y);
+    for (let y = 0; y < height; y++) {
+      const colOrder = Array.from({ length: width }, (_, i) => i).sort(
+        () => Math.random() - 0.5
+      );
 
-          element.behavior(x, y, sim, (setX, setY, ElementClass) => {
-            if (setX >= 0 && setX < width && setY >= 0 && setY < height) {
-              set(setX, setY, ElementClass);
-              processed[setY][setX] = true;
-            }
-          });
-          processed[y][x] = true;
+      for (const x of colOrder) {
+        if (processed[y][x]) continue;
+
+        const element = get(x, y);
+
+        if (element instanceof Empty) continue;
+
+        const wrappedMove = (fromX, fromY, toX, toY) => {
+          move(fromX, fromY, toX, toY);
+          processed[toY][toX] = true;
+        };
+
+        element.behavior(x, y, sim, wrappedMove);
+      }
+    }
+  };
+
+
+  /**
+   * Spawn an element in a circular region around (centerX, centerY).
+   */
+  const spawnElement = (centerX, centerY, ElementClass) => {
+    if (!simulationRef.current || !ElementClass) return;
+    const { set } = simulationRef.current;
+    const radius = brushSizeRef.current;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const distSquared = dx * dx + dy * dy;
+
+        if (distSquared < radius * radius) {
+          set(centerX + dx, centerY + dy, ElementClass);
 
         }
       }
@@ -82,36 +135,17 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   };
 
   /**
-   * Spawn an element in a circular region around (centerX, centerY).
-   */
-const spawnElement = (centerX, centerY, ElementClass) => {
-  if (!simulationRef.current || !ElementClass) return;
-  const { set } = simulationRef.current;
-  const radius = brushSizeRef.current;
-
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      const distSquared = dx * dx + dy * dy;
-
-      if (distSquared < radius * radius) {
-        set(centerX + dx, centerY + dy, ElementClass);
-      }
-    }
-  }
-};
-
-
-  /**
    * Update the GPU texture with the current color buffer.
    */
   const updateTexture = React.useCallback((colorBuffer) => {
     const { texture } = webglRef.current;
     if (!texture) return;
+
     texture.subimage({
       data: colorBuffer,
       width: cols,
       height: rows,
-      flipY: true
+      flipY: true,
     });
   }, [cols, rows]);
 
@@ -131,31 +165,31 @@ const spawnElement = (centerX, centerY, ElementClass) => {
   const drawBrushOutline = (ctx, position, radius, cellSize, currElement) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
-  
+
     const isDeleting = currElement === 'EMPTY';
     const borderColor = isDeleting ? 'red' : 'blue';
     const fillColor = isDeleting ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 0, 255, 0.2)';
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = 2;
-  
+
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const distSquared = dx * dx + dy * dy;
         const withinCircle = distSquared <= radius * radius;
         const outsideInnerCircle = distSquared > (radius - 1) * (radius - 1);
-  
+
         if (withinCircle && outsideInnerCircle) {
           const screenX = (position.x + dx) * cellSize;
           const screenY = (position.y + dy) * cellSize;
-  
+
           ctx.fillStyle = fillColor;
           ctx.fillRect(screenX, screenY, cellSize, cellSize);
-  
+
           ctx.beginPath();
           ctx.moveTo(screenX, screenY);
           ctx.lineTo(screenX + cellSize, screenY);
           ctx.stroke();
-  
+
           ctx.beginPath();
           ctx.moveTo(screenX, screenY);
           ctx.lineTo(screenX, screenY + cellSize);
@@ -164,7 +198,7 @@ const spawnElement = (centerX, centerY, ElementClass) => {
       }
     }
   };
-  
+
 
 
   /**
@@ -207,7 +241,6 @@ const spawnElement = (centerX, centerY, ElementClass) => {
       isMouseDown.current = false;
     };
 
-    // Add event listeners
     overlayCanvas.addEventListener('mousedown', handleMouseDown);
     overlayCanvas.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -252,7 +285,6 @@ const spawnElement = (centerX, centerY, ElementClass) => {
 
     zIndex: 2
   };
-
 
   return (
     <div >

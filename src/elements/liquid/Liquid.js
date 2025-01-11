@@ -5,56 +5,72 @@ import Gas from '../gas/Gas';
 class Liquid extends Element {
   constructor() {
     super();
-    // Initialize the liquid with a random direction (-1 for left, 1 for right)
     this.sidewaysDirection = Math.random() < 0.5 ? -1 : 1;
+    this.dispersalRange = 5;
   }
 
   isMovable(cell) {
     return cell instanceof Empty || cell instanceof Gas;
   }
 
-  behavior(x, y, grid, set) {
-    // Check below the current cell
+  behavior(x, y, grid, move) {
     if (y + 1 < grid.height) {
       const below = grid.get(x, y + 1);
-
       if (this.isMovable(below)) {
-        console.log("falling")
-        set(x, y, below.constructor);
-        set(x, y + 1, this.constructor);
+        move(x, y, x, y + 1);
         return;
       }
     }
 
-    // Move sideways in the current direction
-    const targetX = x + this.sidewaysDirection;
+    if (this.tryDiagonalMove(x, y, grid, move)) {
+      return;
+    }
 
-    console.log(this.sidewaysDirection)
+    if (this.trySidewaysMove(x, y, grid, move)) {
+      return;
+    }
 
-    if (
-      targetX >= 0 &&
-      targetX < grid.width &&
-      this.isMovable(grid.get(targetX, y))
-    ) {
-      const targetCell = grid.get(targetX, y);
-      set(x, y, targetCell.constructor);
-      set(targetX, y, this.constructor);
-    } else {
-      // Change direction if movement is blocked
-      console.log("swapped")
-      this.sidewaysDirection *= -1;
+    this.changeDirection();
+  }
 
-      const newTargetX = x + this.sidewaysDirection;
+  tryDiagonalMove(x, y, grid, move) {
+    const diagonalDirections = [-1, 1];
+    for (const direction of diagonalDirections) {
+      const targetX = x + direction;
+      const targetY = y + 1;
+
       if (
-        newTargetX >= 0 &&
-        newTargetX < grid.width &&
-        this.isMovable(grid.get(newTargetX, y))
+        targetX >= 0 &&
+        targetX < grid.width &&
+        targetY < grid.height &&
+        this.isMovable(grid.get(targetX, targetY))
       ) {
-        const targetCell = grid.get(newTargetX, y);
-        set(x, y, targetCell.constructor);
-        set(newTargetX, y, this.constructor);
+        move(x, y, targetX, targetY);
+        return true;
       }
     }
+    return false;
+  }
+
+  trySidewaysMove(x, y, grid, move) {
+    for (let i = 1; i <= this.dispersalRange; i++) {
+      const targetX = x + this.sidewaysDirection * i;
+
+      if (
+        targetX >= 0 &&
+        targetX < grid.width &&
+        this.isMovable(grid.get(targetX, y))
+      ) {
+        move(x, y, targetX, y);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  changeDirection() {
+    this.sidewaysDirection *= -1;
+
   }
 }
 
