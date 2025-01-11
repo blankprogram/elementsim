@@ -1,7 +1,12 @@
 import regl from 'regl';
 
 export const initializeWebGL = (canvas, gridWidth, gridHeight) => {
-  const context = regl({ canvas });
+  const context = regl({
+    canvas,
+    attributes: {
+      depth: false
+    }
+  });
 
   const texture = context.texture({
     width: gridWidth,
