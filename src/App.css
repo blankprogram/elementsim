@@ -1,0 +1,46 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.app-container {
+
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Ensure no additional scrollbars appear */
+}
+
+.grid-container {
+
+  width: 100%;
+  height: 100%;
+}
+
+
+
+.context-menu {
+    position: absolute;
+    background-color: #d4d0c8;
+    border: 2px solid #808080;
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    padding: 4px 0;
+    z-index: 1000;
+    list-style: none;
+  }
+  
+  .context-menu-item {
+    padding: 4px 16px;
+    color: #000;
+    background-color: #d4d0c8;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .context-menu-item:hover {
+    background-color: #0a246a;
+    color: #fff;
+  }
+  

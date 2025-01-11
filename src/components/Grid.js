@@ -110,7 +110,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
     const overlayCanvas = overlayCanvasRef.current;
     const { texture, drawGrid } = initializeWebGL(webGLCanvas, cols, rows);
     const simulation = createGrid(cols, rows);
-
+  
     const updateTexture = () => {
       texture.subimage({
         data: simulation.colorBuffer,
@@ -119,7 +119,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
         flipY: true,
       });
     };
-
+  
     const spawnElement = (centerX, centerY, ElementClass) => {
       const radius = brushSizeRef.current;
       for (let y = -radius; y <= radius; y++) {
@@ -131,47 +131,47 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
         }
       }
     };
-
+  
     const handleMouseDown = (event) => {
       if (event.button === 0) {
         isMouseDown.current = true;
         mouseButton.current = event.button;
       }
-      
     };
-
+  
     const handleMouseMove = (event) => {
       const rect = overlayCanvas.getBoundingClientRect();
       const x = Math.floor(((event.clientX - rect.left) / rect.width) * cols);
       const y = Math.floor(((event.clientY - rect.top) / rect.height) * rows);
       setMousePosition({ x, y });
-
+  
       if (isMouseDown.current) {
-        const ElementClass =
-          selectedElement === 'Empty' ? Empty : ElementType[selectedElementRef.current];
+        const ElementClass = ElementType[selectedElementRef.current];
         spawnElement(x, y, ElementClass);
       }
+      
     };
-
+  
     const handleMouseUp = () => {
       isMouseDown.current = false;
       mouseButton.current = null;
     };
-
+  
     overlayCanvas.addEventListener('mousedown', handleMouseDown);
     overlayCanvas.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     overlayCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
+  
     const render = () => {
       simulate(simulation);
       updateTexture();
       drawGrid();
       requestAnimationFrame(render);
     };
-
+  
     render();
   }, [rows, cols]);
+  
 
   return (
     <div>

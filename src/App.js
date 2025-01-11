@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WebGLGrid from './components/Grid';
 import ElementType from './elements/ElementType';
 import './App.css';
@@ -11,6 +11,17 @@ function App() {
   const [brushSize, setBrushSize] = useState(1);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
 
+
+  useEffect(() => {
+    const disableScroll = (e) => {
+      if (e.ctrlKey ) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', disableScroll, { passive: false });
+    return () => window.removeEventListener('wheel', disableScroll);
+  }, []);
+
   const handleScroll = (e) => {
     setBrushSize((prevSize) =>
       Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 2 : -2)))
@@ -19,41 +30,18 @@ function App() {
 
   const handleRightClick = (e) => {
     e.preventDefault();
-      setContextMenu({ visible: !contextMenu.visible, x: e.clientX, y: e.clientY });
+    setContextMenu({ visible: !contextMenu.visible, x: e.clientX, y: e.clientY });
+  };
 
+  const handleLeftClick = () => {
+    if (contextMenu.visible) {
+      setContextMenu({ visible: false, x: 0, y: 0 });
+    }
   };
 
   const handleSelectElement = (element) => {
     setSelectedElement(element);
-    setContextMenu({ ...contextMenu, visible: false });
-  };
-
-
-  const menuStyle = {
-    position: 'absolute',
-    top: `${contextMenu.y}px`,
-    left: `${contextMenu.x}px`,
-    backgroundColor: '#d4d0c8',
-    border: '2px solid #808080',
-    boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.2)',
-    padding: '4px 0',
-    zIndex: 1000,
-    fontFamily: 'Tahoma, sans-serif',
-    fontSize: '14px',
-    listStyle: 'none',
-    cursor: 'default',
-  };
-
-  const menuItemStyle = {
-    padding: '4px 16px',
-    color: '#000',
-    backgroundColor: '#d4d0c8',
-    transition: 'background-color 0.2s',
-  };
-
-  const menuItemHoverStyle = {
-    backgroundColor: '#0a246a',
-    color: '#fff',
+    setContextMenu({ visible: false, x: 0, y: 0 });
   };
 
   return (
@@ -61,24 +49,20 @@ function App() {
       className="app-container"
       onWheel={handleScroll}
       onContextMenu={handleRightClick}
+      onClick={handleLeftClick}
     >
       <div className="grid-container">
         <WebGLGrid rows={100} cols={170} selectedElement={selectedElement} brushSize={brushSize} />
       </div>
       {contextMenu.visible && (
-        <ul style={menuStyle}>
+        <ul
+          className="context-menu"
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+        >
           {Object.keys(ElementType).map((key) => (
             <li
               key={key}
-              style={menuItemStyle}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = menuItemHoverStyle.backgroundColor;
-                e.target.style.color = menuItemHoverStyle.color;
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = menuItemStyle.backgroundColor;
-                e.target.style.color = menuItemStyle.color;
-              }}
+              className="context-menu-item"
               onClick={() => handleSelectElement(key)}
             >
               {key}
