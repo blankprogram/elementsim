@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import WebGLGrid from './components/Grid';
 import ElementType from './elements/ElementType';
 import './App.css';
@@ -7,29 +7,14 @@ const MAX_BRUSH_SIZE = 21;
 const MIN_BRUSH_SIZE = 1;
 
 function App() {
-  const [selectedElement, setSelectedElement] = useState('SAND');
+  const [selectedElement, setSelectedElement] = useState('Sand');
   const [brushSize, setBrushSize] = useState(1);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
-
-  useEffect(() => {
-    // Prevent default wheel behavior when ctrl is pressed (so the page doesn't zoom)
-    const disableScroll = (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('wheel', disableScroll, { passive: false });
-    return () => window.removeEventListener('wheel', disableScroll);
-  }, []);
+  const [submenuVisible, setSubmenuVisible] = useState(null);
+  const [simulationState, setSimulationState] = useState('running');
 
   const handleScroll = (e) => {
-    if (e.ctrlKey) {
-      // Ctrl + wheel => Zoom handled inside WebGLGrid via a callback
-      // We do nothing here or we could pass the event down somehow.
-      // For now, just prevent default so page doesn't zoom.
-      e.preventDefault();
-    } else {
-      // If not holding ctrl, use old brush resizing logic
+    if (!contextMenu.visible) {
       setBrushSize((prevSize) =>
         Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 2 : -2)))
       );
@@ -38,18 +23,32 @@ function App() {
 
   const handleRightClick = (e) => {
     e.preventDefault();
-    setContextMenu({ visible: !contextMenu.visible, x: e.clientX, y: e.clientY });
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
   };
 
   const handleLeftClick = () => {
-    if (contextMenu.visible) {
-      setContextMenu({ visible: false, x: 0, y: 0 });
-    }
+    setContextMenu({ visible: false, x: 0, y: 0 });
+    setSubmenuVisible(null);
+  };
+
+  const toggleSubmenu = (menu) => {
+    setSubmenuVisible((prev) => (prev === menu ? null : menu));
+  };
+
+  const handlePause = () => {
+    setSimulationState((prev) => (prev === 'paused' ? 'running' : 'paused'));
+    setContextMenu({ visible: false, x: 0, y: 0 });
+  };
+
+  const handleStep = () => {
+    setSimulationState('step');
+    setContextMenu({ visible: false, x: 0, y: 0 });
   };
 
   const handleSelectElement = (element) => {
     setSelectedElement(element);
     setContextMenu({ visible: false, x: 0, y: 0 });
+    setSubmenuVisible(null);
   };
 
   return (
@@ -59,19 +58,28 @@ function App() {
       onContextMenu={handleRightClick}
       onClick={handleLeftClick}
     >
+      <WebGLGrid
+        rows={100}
+        cols={170}
+        selectedElement={selectedElement}
+        brushSize={brushSize}
+        simulationState={simulationState}
+        setSimulationState={setSimulationState}
+      />
 
-        <WebGLGrid
-          rows={100}
-          cols={170}
-          selectedElement={selectedElement}
-          brushSize={brushSize}
-        />
-
-      {contextMenu.visible && (
-        <ul
-          className="context-menu"
-          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-        >
+{contextMenu.visible && (
+  <ul
+    className="context-menu"
+    style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+  >
+    <li
+      className="context-menu-item has-submenu"
+      onMouseEnter={() => toggleSubmenu('CREATE')}
+      onMouseLeave={() => toggleSubmenu(null)}
+    >
+      Create
+      {submenuVisible === 'CREATE' && (
+        <ul className="context-submenu">
           {Object.keys(ElementType).map((key) => (
             <li
               key={key}
@@ -83,6 +91,30 @@ function App() {
           ))}
         </ul>
       )}
+    </li>
+
+    <li
+      className="context-menu-item"
+      onClick={() => handleSelectElement('EMPTY')}
+    >
+      Delete
+    </li>
+
+    <hr className="context-menu-divider" />
+
+    <li
+      className="context-menu-item"
+      onClick={handlePause}
+    >
+      {simulationState === 'paused' ? 'Resume' : 'Pause'}
+    </li>
+
+    <li className="context-menu-item" onClick={handleStep}>
+      Step
+    </li>
+  </ul>
+)}
+
     </div>
   );
 }

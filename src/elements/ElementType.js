@@ -8,14 +8,14 @@ import Empty from './EmptyCell';
 import RainbowSand from './solid/moveable/RainbowSand';
 
 const ElementType = {
-  EMPTY: Empty,
-  SAND: Sand,
-  DIRT: Dirt,
-  STONE: Stone,
-  WOOD: Wood,
-  WATER: Water,
-  HELIUM: Helium,
-  RAINBOWSAND: RainbowSand,
+  Empty: Empty,
+  Sand: Sand,
+  Dirt: Dirt,
+  Stone: Stone,
+  Wood: Wood,
+  Water: Water,
+  Helium: Helium,
+  Rainbow: RainbowSand,
 };
   
   export default ElementType;

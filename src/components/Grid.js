@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ElementType from '../elements/ElementType';
 import Empty from '../elements/EmptyCell';
-import Gas from '../elements/gas/Gas';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
 
-const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
+const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimulationState }) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
 
@@ -28,8 +27,6 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   useEffect(() => {
     brushSizeRef.current = brushSize;
   }, [brushSize]);
-
-
 
   /**
    * Create the simulation grid with the specified width/height.
@@ -86,35 +83,38 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   /**
    * Run the sand/water simulation step.
    */
-  const simulate = (sim) => {
+  const simulate = React.useCallback((sim) => {
+    if (simulationState === 'paused') return;
+    if (simulationState === 'step') setSimulationState('paused');
+  
     const { get, width, height, move } = sim;
     const processed = Array.from({ length: height }, () =>
       Array(width).fill(false)
     );
-
+  
     for (let y = 0; y < height; y++) {
-
       const colOrder = Array.from({ length: width }, (_, i) => i).sort(
         () => Math.random() - 0.5
       );
-
+  
       for (const x of colOrder) {
         if (processed[y][x]) continue;
-
+  
         const element = get(x, y);
-
+  
         if (element instanceof Empty) continue;
-
+  
         const wrappedMove = (fromX, fromY, toX, toY) => {
           move(fromX, fromY, toX, toY);
           processed[fromY][fromX] = true;
           processed[toY][toX] = true;
         };
-
+  
         element.behavior(x, y, sim, wrappedMove);
       }
     }
-  }
+  }, [simulationState, setSimulationState]);
+  
 
   /**
    * Spawn an element in a circular region around (centerX, centerY).
@@ -252,15 +252,17 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   }, [rows, cols]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const intervalId = setInterval(() => {
+      if (!simulationRef.current) return;
       const { colorBuffer } = simulationRef.current;
       simulate(simulationRef.current);
       updateTexture(colorBuffer);
       performDrawGrid();
     }, 16);
-
-    return () => clearInterval(interval);
-  }, [updateTexture]);
+  
+    return () => clearInterval(intervalId);
+  }, [simulate, updateTexture]);
+  
 
 
   useEffect(() => {
