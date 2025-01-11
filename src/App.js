@@ -95,7 +95,7 @@ function App() {
 
     <li
       className="context-menu-item"
-      onClick={() => handleSelectElement('EMPTY')}
+      onClick={() => handleSelectElement('Empty')}
     >
       Delete
     </li>
