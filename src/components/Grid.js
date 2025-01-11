@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ElementType from '../elements/ElementType';
 import Empty from '../elements/EmptyCell';
+import Gas from '../elements/gas/Gas';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
@@ -92,6 +93,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
     );
 
     for (let y = 0; y < height; y++) {
+
       const colOrder = Array.from({ length: width }, (_, i) => i).sort(
         () => Math.random() - 0.5
       );
@@ -105,14 +107,14 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
 
         const wrappedMove = (fromX, fromY, toX, toY) => {
           move(fromX, fromY, toX, toY);
+          processed[fromY][fromX] = true;
           processed[toY][toX] = true;
         };
 
         element.behavior(x, y, sim, wrappedMove);
       }
     }
-  };
-
+  }
 
   /**
    * Spawn an element in a circular region around (centerX, centerY).
@@ -250,15 +252,16 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize }) => {
   }, [rows, cols]);
 
   useEffect(() => {
-    const renderLoop = () => {
+    const interval = setInterval(() => {
       const { colorBuffer } = simulationRef.current;
       simulate(simulationRef.current);
       updateTexture(colorBuffer);
       performDrawGrid();
-      requestAnimationFrame(renderLoop);
-    };
-    renderLoop();
+    }, 16);
+
+    return () => clearInterval(interval);
   }, [updateTexture]);
+
 
   useEffect(() => {
     const overlayCanvas = overlayCanvasRef.current;

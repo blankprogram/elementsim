@@ -5,6 +5,7 @@ class Gas extends Element {
   constructor() {
     super();
     this.sidewaysDirection = Math.random() < 0.5 ? -1 : 1;
+    this.dispersalRange = 5;
   }
 
   isMovable(cell) {
@@ -12,59 +13,46 @@ class Gas extends Element {
   }
 
   behavior(x, y, grid, move) {
-    if (y - 1 >= 0) {
-      const above = grid.get(x, y - 1);
-      if (this.isMovable(above)) {
-        move(x, y, x, y - 1);
-        return;
-      }
-    }
-
-    if (this.tryDiagonalMove(x, y, grid, move)) {
-      return;
-    }
-
-    if (this.trySidewaysMove(x, y, grid, move)) {
-      return;
-    }
-
-    this.changeDirection();
+    if (this.attemptMovement(x, y, grid, move)) return;
+    this.reverseDirection();
   }
 
-  tryDiagonalMove(x, y, grid, move) {
-    const diagonalDirections = [-1, 1];
-    for (const direction of diagonalDirections) {
-      const targetX = x + direction;
-      const targetY = y - 1;
+  attemptMovement(x, y, grid, move) {
+    const movementOptions = [
+      { dx: 0, dy: -1, chance: 0.1 },
+      { dx: -1, dy: -1, chance: 0.1 },
+      { dx: 1, dy: -1, chance: 0.1 },
+      ...this.generateSidewaysOptions(x),
+    ];
 
-      if (
-        targetX >= 0 &&
-        targetX < grid.width &&
-        targetY >= 0 &&
-        this.isMovable(grid.get(targetX, targetY))
-      ) {
-        move(x, y, targetX, targetY);
-        return true;
-      }
-    }
-    return false;
+    return movementOptions.some(({ dx, dy, chance }) =>
+      Math.random() < chance && this.tryMove(x, y, x + dx, y + dy, grid, move)
+    );
   }
 
-  trySidewaysMove(x, y, grid, move) {
-    const targetX = x + this.sidewaysDirection;
+  generateSidewaysOptions(x) {
+    const options = [];
+    for (let i = 1; i <= this.dispersalRange; i++) {
+      options.push({ dx: this.sidewaysDirection * i, dy: 0, chance: 0.1 });
+    }
+    return options;
+  }
 
+  tryMove(fromX, fromY, toX, toY, grid, move) {
     if (
-      targetX >= 0 &&
-      targetX < grid.width &&
-      this.isMovable(grid.get(targetX, y))
+      toX >= 0 &&
+      toX < grid.width &&
+      toY >= 0 &&
+      toY < grid.height &&
+      this.isMovable(grid.get(toX, toY))
     ) {
-      move(x, y, targetX, y);
+      move(fromX, fromY, toX, toY);
       return true;
     }
     return false;
   }
 
-  changeDirection() {
+  reverseDirection() {
     this.sidewaysDirection *= -1;
   }
 }

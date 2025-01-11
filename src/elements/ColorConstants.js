@@ -13,7 +13,6 @@ const ColorConstants = {
     [145, 85, 40, 255],
     [90, 44, 20, 255],
   ],
-
   WOOD: [
     [205, 92, 52, 255],
     [210, 105, 60, 255],
@@ -21,7 +20,6 @@ const ColorConstants = {
     [215, 100, 50, 255],
     [180, 75, 30, 255],
   ],
-  
   STONE: [
     [150, 150, 150, 255],
     [120, 120, 120, 255],
@@ -30,16 +28,33 @@ const ColorConstants = {
     [160, 160, 160, 255],
   ],
   WATER: [[28, 85, 234, 255]],
-  
   HELIUM: [[174, 174, 174, 255]],
-  
   EMPTY: [[0, 0, 0, 0]],
-  
+
+  RAINBOWSAND: [
+    [255, 0, 0, 255],
+    [255, 127, 0, 255],
+    [255, 255, 0, 255],
+    [0, 255, 0, 255],
+    [0, 0, 255, 255],
+    [75, 0, 130, 255],
+    [148, 0, 211, 255],
+  ],
+
+  rainbowIndex: 0,
+
   getColor(type) {
     const colors = this[type];
     if (!colors) {
       throw new Error(`No colors defined for type: ${type}`);
     }
+
+    if (type === 'RAINBOWSAND') {
+      const color = colors[this.rainbowIndex];
+      this.rainbowIndex = (this.rainbowIndex + 1) % colors.length;
+      return color;
+    }
+
     const randomIndex = Math.floor(Math.random() * colors.length);
     return colors[randomIndex];
   },

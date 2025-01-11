@@ -5,6 +5,7 @@ import Wood from './solid/immoveable/Wood';
 import Water from './liquid/Water';
 import Helium from './gas/Helium';
 import Empty from './EmptyCell';
+import RainbowSand from './solid/moveable/RainbowSand';
 
 const ElementType = {
   EMPTY: Empty,
@@ -14,6 +15,7 @@ const ElementType = {
   WOOD: Wood,
   WATER: Water,
   HELIUM: Helium,
+  RAINBOWSAND: RainbowSand,
 };
   
   export default ElementType;
