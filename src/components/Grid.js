@@ -168,7 +168,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
 
-    const isDeleting = currElement === 'EMPTY';
+    const isDeleting = currElement === 'Empty';
     const borderColor = isDeleting ? 'red' : 'blue';
     const fillColor = isDeleting ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 0, 255, 0.2)';
     ctx.strokeStyle = borderColor;
