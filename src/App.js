@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import WebGLGrid from './components/Grid';
+import Grid from './components/Grid';
 import ElementType from './elements/ElementType';
 import './App.css';
 
@@ -13,108 +13,93 @@ function App() {
   const [submenuVisible, setSubmenuVisible] = useState(null);
   const [simulationState, setSimulationState] = useState('running');
 
-  const handleScroll = (e) => {
+  const adjustBrushSize = (e) => {
     if (!contextMenu.visible) {
-      setBrushSize((prevSize) =>
-        Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 2 : -2)))
+      setBrushSize((size) =>
+        Math.max(MIN_BRUSH_SIZE, Math.min(MAX_BRUSH_SIZE, size + (e.deltaY < 0 ? 2 : -2)))
       );
     }
   };
 
-  const handleRightClick = (e) => {
+  const openContextMenu = (e) => {
     e.preventDefault();
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
   };
 
-  const handleLeftClick = () => {
+  const closeContextMenu = () => {
     setContextMenu({ visible: false, x: 0, y: 0 });
     setSubmenuVisible(null);
   };
 
-  const toggleSubmenu = (menu) => {
-    setSubmenuVisible((prev) => (prev === menu ? null : menu));
+  const toggleSubmenu = (menu) => setSubmenuVisible((prev) => (prev === menu ? null : menu));
+
+  const toggleSimulationState = () => {
+    setSimulationState((state) => (state === 'paused' ? 'running' : 'paused'));
+    closeContextMenu();
   };
 
-  const handlePause = () => {
-    setSimulationState((prev) => (prev === 'paused' ? 'running' : 'paused'));
-    setContextMenu({ visible: false, x: 0, y: 0 });
-  };
-
-  const handleStep = () => {
+  const stepSimulation = () => {
     setSimulationState('step');
-    setContextMenu({ visible: false, x: 0, y: 0 });
+    closeContextMenu();
   };
 
-  const handleSelectElement = (element) => {
+  const selectElement = (element) => {
     setSelectedElement(element);
-    setContextMenu({ visible: false, x: 0, y: 0 });
-    setSubmenuVisible(null);
+    closeContextMenu();
   };
 
   return (
     <div
       className="app-container"
-      onWheel={handleScroll}
-      onContextMenu={handleRightClick}
-      onClick={handleLeftClick}
+      onWheel={adjustBrushSize}
+      onContextMenu={openContextMenu}
+      onClick={closeContextMenu}
     >
-      <WebGLGrid
-        rows={100}
-        cols={170}
+      <Grid
+        rows={200}
+        cols={340}
         selectedElement={selectedElement}
         brushSize={brushSize}
         simulationState={simulationState}
         setSimulationState={setSimulationState}
       />
-
-{contextMenu.visible && (
-  <ul
-    className="context-menu"
-    style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-  >
-    <li
-      className="context-menu-item has-submenu"
-      onMouseEnter={() => toggleSubmenu('CREATE')}
-      onMouseLeave={() => toggleSubmenu(null)}
-    >
-      Create
-      {submenuVisible === 'CREATE' && (
-        <ul className="context-submenu">
-          {Object.keys(ElementType).map((key) => (
-            <li
-              key={key}
-              className="context-menu-item"
-              onClick={() => handleSelectElement(key)}
-            >
-              {key}
-            </li>
-          ))}
+      {contextMenu.visible && (
+        <ul
+          className="context-menu"
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+        >
+          <li
+            className="context-menu-item has-submenu"
+            onMouseEnter={() => toggleSubmenu('CREATE')}
+            onMouseLeave={() => toggleSubmenu(null)}
+          >
+            Create
+            {submenuVisible === 'CREATE' && (
+              <ul className="context-submenu">
+                {Object.keys(ElementType).map((key) => (
+                  <li
+                    key={key}
+                    className="context-menu-item"
+                    onClick={() => selectElement(key)}
+                  >
+                    {key}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          <li className="context-menu-item" onClick={() => selectElement('Empty')}>
+            Delete
+          </li>
+          <hr className="context-menu-divider" />
+          <li className="context-menu-item" onClick={toggleSimulationState}>
+            {simulationState === 'paused' ? 'Resume' : 'Pause'}
+          </li>
+          <li className="context-menu-item" onClick={stepSimulation}>
+            Step
+          </li>
         </ul>
       )}
-    </li>
-
-    <li
-      className="context-menu-item"
-      onClick={() => handleSelectElement('Empty')}
-    >
-      Delete
-    </li>
-
-    <hr className="context-menu-divider" />
-
-    <li
-      className="context-menu-item"
-      onClick={handlePause}
-    >
-      {simulationState === 'paused' ? 'Resume' : 'Pause'}
-    </li>
-
-    <li className="context-menu-item" onClick={handleStep}>
-      Step
-    </li>
-  </ul>
-)}
-
     </div>
   );
 }

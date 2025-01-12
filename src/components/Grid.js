@@ -5,10 +5,10 @@ import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
 
-const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimulationState }) => {
+const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimulationState }) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
-
+  const [tps, setTps] = useState(0);
   const simulationRef = useRef(null);
   const webglRef = useRef({ texture: null, drawGrid: null });
 
@@ -16,7 +16,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
   const brushSizeRef = useRef(brushSize);
 
   const isMouseDown = useRef(false);
-
+  const [scale, setScale] = useState(1);
 
   const [mousePosition, setMousePosition] = useState({ x: null, y: null });
 
@@ -27,6 +27,30 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
   useEffect(() => {
     brushSizeRef.current = brushSize;
   }, [brushSize]);
+
+  useEffect(() => {
+    const calculateScale = () => {
+      const overlayCanvas = overlayCanvasRef.current;
+      if (!overlayCanvas) return;
+
+      const container = overlayCanvas.parentElement;
+      const containerWidth = container.offsetWidth;
+      const containerHeight = container.offsetHeight;
+
+      const canvasWidth = cols * CELL_SIZE;
+      const canvasHeight = rows * CELL_SIZE;
+
+      const scaleX = containerWidth / canvasWidth;
+      const scaleY = containerHeight / canvasHeight;
+
+      setScale(Math.min(scaleX, scaleY));
+    };
+
+    window.addEventListener('resize', calculateScale);
+    calculateScale();
+
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [cols, rows]);
 
   /**
    * Create the simulation grid with the specified width/height.
@@ -164,7 +188,7 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
   /**
    * Draw the brush outline on the overlay canvas in screen coordinates.
    */
-  const drawBrushOutline = (ctx, position, radius, cellSize, currElement) => {
+  const drawBrushOutline = (ctx, position, radius, currElement) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
 
@@ -181,27 +205,25 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
         const outsideInnerCircle = distSquared > (radius - 1) * (radius - 1);
 
         if (withinCircle && outsideInnerCircle) {
-          const screenX = (position.x + dx) * cellSize;
-          const screenY = (position.y + dy) * cellSize;
+          const screenX = (position.x + dx) * CELL_SIZE;
+          const screenY = (position.y + dy) * CELL_SIZE;
 
           ctx.fillStyle = fillColor;
-          ctx.fillRect(screenX, screenY, cellSize, cellSize);
+          ctx.fillRect(screenX, screenY, CELL_SIZE, CELL_SIZE);
 
           ctx.beginPath();
           ctx.moveTo(screenX, screenY);
-          ctx.lineTo(screenX + cellSize, screenY);
+          ctx.lineTo(screenX + CELL_SIZE, screenY);
           ctx.stroke();
 
           ctx.beginPath();
           ctx.moveTo(screenX, screenY);
-          ctx.lineTo(screenX, screenY + cellSize);
+          ctx.lineTo(screenX, screenY + CELL_SIZE);
           ctx.stroke();
         }
       }
     }
   };
-
-
 
   /**
    * Main effect: Sets up the simulation & WebGL, attaches listeners,
@@ -223,14 +245,25 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
       }
     };
 
-    const handleMouseMove = (event) => {
-      const rect = overlayCanvas.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
-
+    
+    const getAdjustedMousePosition = (event) => {
+      const rect = overlayCanvasRef.current.getBoundingClientRect();
+      
+      const scaleX = rect.width / (cols * CELL_SIZE);
+      const scaleY = rect.height / (rows * CELL_SIZE);
+  
+      const mouseX = (event.clientX - rect.left) / scaleX;
+      const mouseY = (event.clientY - rect.top) / scaleY;
+    
       const gridX = Math.floor(mouseX / CELL_SIZE);
       const gridY = Math.floor(mouseY / CELL_SIZE);
+    
+      return { gridX, gridY };
+    };
+    
 
+    const handleMouseMove = (event) => {
+      const { gridX, gridY } = getAdjustedMousePosition(event);
       setMousePosition({ x: gridX, y: gridY });
 
       if (isMouseDown.current) {
@@ -252,16 +285,37 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
   }, [rows, cols]);
 
   useEffect(() => {
+    let lastTime = performance.now();
+    let tickCount = 0;
+    let totalTickTime = 0;
+  
     const intervalId = setInterval(() => {
       if (!simulationRef.current) return;
       const { colorBuffer } = simulationRef.current;
+  
+      const tickStart = performance.now(); // Start of the tick
       simulate(simulationRef.current);
       updateTexture(colorBuffer);
       performDrawGrid();
+      const tickEnd = performance.now(); // End of the tick
+  
+      const tickDuration = tickEnd - tickStart;
+      totalTickTime += tickDuration;
+      tickCount++;
+  
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        const avgTickTime = totalTickTime / tickCount; // Average tick time in ms
+        setTps(avgTickTime.toFixed(2)); // Update the state with the tick time (rounded to 2 decimals)
+        tickCount = 0;
+        totalTickTime = 0;
+        lastTime = now;
+      }
     }, 16);
   
     return () => clearInterval(intervalId);
   }, [simulate, updateTexture]);
+  
   
 
 
@@ -277,36 +331,46 @@ const WebGLGrid = ({ rows, cols, selectedElement, brushSize, simulationState ,se
     );
   }, [mousePosition, brushSize, selectedElement]);
 
-  const webGLTransform = {
-    position: 'absolute',
-    transformOrigin: '0 0',
-
-    zIndex: 1
-  };
-
-  const overlayStyle = {
-    position: 'absolute',
-    transformOrigin: '0 0',
-
-    zIndex: 2
-  };
-
   return (
-    <div >
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <canvas
         ref={webGLCanvasRef}
         width={cols * CELL_SIZE}
         height={rows * CELL_SIZE}
-        style={webGLTransform}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          zIndex: 1,
+        }}
       />
       <canvas
         ref={overlayCanvasRef}
         width={cols * CELL_SIZE}
         height={rows * CELL_SIZE}
-        style={overlayStyle}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          zIndex: 2,
+        }}
       />
+            <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          position: 'absolute',
+          color: 'white',
+          fontSize: '30px',
+          padding: '40px',
+          fontFamily : 'Tahoma, Arial, sans-serif',
+          fontWeight: 'bold',
+          zIndex: 1,
+        }}
+      >
+        <p>TPS: {tps} ms</p>
+        <p>Selected: {selectedElement}</p>
+      </div>
     </div>
   );
 };
 
-export default WebGLGrid;
+export default Grid;
