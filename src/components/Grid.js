@@ -4,6 +4,7 @@ import Empty from '../elements/EmptyCell';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
+const CHUNK_SIZE = 124; // Define size of each chunk in cells
 
 const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimulationState }) => {
   const webGLCanvasRef = useRef(null);
@@ -11,7 +12,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   const [tps, setTps] = useState(0);
   const simulationRef = useRef(null);
   const webglRef = useRef({ texture: null, drawGrid: null });
-
+  const activeChunksRef = useRef(new Set()); // Tracks active chunks
   const selectedElementRef = useRef(selectedElement);
   const brushSizeRef = useRef(brushSize);
 
@@ -55,15 +56,23 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   /**
    * Create the simulation grid with the specified width/height.
    */
-  const createGrid = (width, height) => {
+
+  const markChunkActive = (x, y) => {
+    const chunkX = Math.floor(x / CHUNK_SIZE);
+    const chunkY = Math.floor(y / CHUNK_SIZE);
+    activeChunksRef.current.add(`${chunkX},${chunkY}`);
+  };
+
+  
+  const createGrid = React.useCallback((width, height) => {
     const grid = Array.from({ length: height }, () =>
       Array.from({ length: width }, () => new Empty())
     );
     const colorBuffer = new Uint8Array(width * height * 4).fill(0);
-
+  
     const get = (x, y) =>
       x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new Empty();
-
+  
     const move = (fromX, fromY, toX, toY) => {
       if (
         fromX >= 0 &&
@@ -79,29 +88,33 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
         const temp = grid[toY][toX];
         grid[toY][toX] = grid[fromY][fromX];
         grid[fromY][fromX] = temp;
-
+  
         const fromIndex = (fromY * width + fromX) * 4;
         const toIndex = (toY * width + toX) * 4;
-
+  
         colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
         colorBuffer.set(grid[toY][toX].getColor(), toIndex);
+  
+        markChunkActive(fromX, fromY);
+        markChunkActive(toX, toY);
       }
     };
-
-
-
+  
     const set = (x, y, ElementClass) => {
       if (x >= 0 && x < width && y >= 0 && y < height) {
         if (ElementClass) {
           grid[y][x] = new ElementClass();
           const index = (y * width + x) * 4;
           colorBuffer.set(grid[y][x].getColor(), index);
+  
+          markChunkActive(x, y);
         }
       }
     };
-
+  
     return { grid, colorBuffer, get, set, move, width, height };
-  };
+  }, []);
+  
 
 
   /**
@@ -111,33 +124,46 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
     if (simulationState === 'paused') return;
     if (simulationState === 'step') setSimulationState('paused');
   
-    const { get, width, height, move } = sim;
-    const processed = Array.from({ length: height }, () =>
-      Array(width).fill(false)
-    );
+    const { get, move, width, height } = sim;
+    const processed = Array.from({ length: height }, () => Array(width).fill(false));
   
-    for (let y = 0; y < height; y++) {
-      const colOrder = Array.from({ length: width }, (_, i) => i).sort(
-        () => Math.random() - 0.5
-      );
+    const activeChunks = Array.from(activeChunksRef.current);
+    activeChunksRef.current.clear(); // Clear active chunks after processing
   
-      for (const x of colOrder) {
-        if (processed[y][x]) continue;
+    for (const chunkKey of activeChunks) {
+      const [chunkX, chunkY] = chunkKey.split(',').map(Number);
+      const startX = chunkX * CHUNK_SIZE;
+      const startY = chunkY * CHUNK_SIZE;
+      const endX = Math.min(startX + CHUNK_SIZE, width);
+      const endY = Math.min(startY + CHUNK_SIZE, height);
   
-        const element = get(x, y);
+      for (let y = startY; y < endY; y++) {
+        const isLeftToRight = Math.random() > 0.5;
+        const xRange = isLeftToRight
+          ? { start: startX, end: endX, step: 1 }
+          : { start: endX - 1, end: startX - 1, step: -1 };
   
-        if (element instanceof Empty) continue;
+        for (let x = xRange.start; x !== xRange.end; x += xRange.step) {
+          if (processed[y][x]) continue;
   
-        const wrappedMove = (fromX, fromY, toX, toY) => {
-          move(fromX, fromY, toX, toY);
-          processed[fromY][fromX] = true;
-          processed[toY][toX] = true;
-        };
+          const element = get(x, y);
   
-        element.behavior(x, y, sim, wrappedMove);
+          // Skip empty or static elements
+          if (element instanceof Empty || element.isStatic()) continue;
+  
+          const wrappedMove = (fromX, fromY, toX, toY) => {
+            move(fromX, fromY, toX, toY);
+            processed[fromY][fromX] = true;
+            processed[toY][toX] = true;
+          };
+  
+          element.behavior(x, y, sim, wrappedMove);
+        }
       }
     }
   }, [simulationState, setSimulationState]);
+  
+  
   
 
   /**
@@ -282,39 +308,61 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
 
 
 
-  }, [rows, cols]);
+  }, [createGrid, cols, rows]);
 
   useEffect(() => {
-    let lastTime = performance.now();
+    const fixedUpdateRate = 1000 / 60;
+    let lastSimTime = performance.now();
+    let tpsLastUpdateTime = performance.now();
     let tickCount = 0;
     let totalTickTime = 0;
   
-    const intervalId = setInterval(() => {
-      if (!simulationRef.current) return;
-      const { colorBuffer } = simulationRef.current;
-  
-      const tickStart = performance.now(); // Start of the tick
-      simulate(simulationRef.current);
-      updateTexture(colorBuffer);
-      performDrawGrid();
-      const tickEnd = performance.now(); // End of the tick
-  
-      const tickDuration = tickEnd - tickStart;
-      totalTickTime += tickDuration;
-      tickCount++;
-  
+    const renderLoop = () => {
       const now = performance.now();
-      if (now - lastTime >= 1000) {
-        const avgTickTime = totalTickTime / tickCount; // Average tick time in ms
-        setTps(avgTickTime.toFixed(2)); // Update the state with the tick time (rounded to 2 decimals)
-        tickCount = 0;
-        totalTickTime = 0;
-        lastTime = now;
-      }
-    }, 16);
+      const deltaSimTime = now - lastSimTime;
+      if (deltaSimTime >= fixedUpdateRate) {
+        if (simulationRef.current) {
+          const tickStart = performance.now();
+          simulate(simulationRef.current);
+          const tickEnd = performance.now();
   
-    return () => clearInterval(intervalId);
+          const tickTime = tickEnd - tickStart;
+          //FOR CAPPED TPS
+          //totalTickTime += Math.max(tickTime, fixedUpdateRate);
+          totalTickTime += tickTime;
+          tickCount++;
+          
+          // CAPPED TPS
+          //lastSimTime += fixedUpdateRate;
+
+          lastSimTime = now;
+        }
+      }
+  
+      if (simulationRef.current) {
+        const { colorBuffer } = simulationRef.current;
+        updateTexture(colorBuffer);
+        performDrawGrid();
+      }
+      
+      if (now - tpsLastUpdateTime >= 1000) {
+        if (tickCount > 0) {
+          const avgTickTime = totalTickTime / tickCount;
+          setTps(avgTickTime.toFixed(2));
+          tickCount = 0;
+          totalTickTime = 0;
+        }
+        tpsLastUpdateTime = now;
+      }
+      requestAnimationFrame(renderLoop);
+    };
+  
+    const animationId = requestAnimationFrame(renderLoop);
+    return () => cancelAnimationFrame(animationId);
   }, [simulate, updateTexture]);
+  
+  
+  
   
   
 
