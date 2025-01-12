@@ -9,33 +9,38 @@ class MovableSolid extends Solid {
   }
 
   behavior(x, y, grid, move) {
-    const nextY = y + 1;
-
-    if (nextY < grid.height) {
+    const nextY = y - 1;
+  
+    if (nextY >= 0) {
       const below = grid.get(x, nextY);
-
+  
       if (this.isSwappable(below)) {
         move(x, y, x, nextY);
         return;
       }
-
+  
       const directions = [-1, 1];
       for (const direction of directions) {
         const targetX = x + direction;
         const targetBelowY = nextY;
-
+  
         if (
           targetX >= 0 &&
           targetX < grid.width &&
-          targetBelowY < grid.height &&
+          targetBelowY >= 0 &&
           this.isSwappable(grid.get(targetX, targetBelowY))
         ) {
-          move(x, y, targetX, targetBelowY);
-          return;
+          const horizontalNeighbor = grid.get(x + direction, y);
+          if (horizontalNeighbor instanceof Empty) {
+            move(x, y, targetX, targetBelowY);
+            return;
+          }
         }
       }
     }
   }
+  
+  
 }
 
 export default MovableSolid;

@@ -12,6 +12,12 @@ function App() {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
   const [submenuVisible, setSubmenuVisible] = useState(null);
   const [simulationState, setSimulationState] = useState('running');
+  const [showChunks, setShowChunks] = useState(false); // New state for showing chunks
+
+  const toggleShowChunks = () => {
+    setShowChunks((prev) => !prev);
+    setContextMenu({ visible: false, x: 0, y: 0 });
+  };
 
   const adjustBrushSize = (e) => {
     if (!contextMenu.visible) {
@@ -43,6 +49,8 @@ function App() {
     closeContextMenu();
   };
 
+  
+
   const selectElement = (element) => {
     setSelectedElement(element);
     closeContextMenu();
@@ -62,6 +70,7 @@ function App() {
         brushSize={brushSize}
         simulationState={simulationState}
         setSimulationState={setSimulationState}
+        showChunks={showChunks} // Pass showChunks state to Grid
       />
       {contextMenu.visible && (
         <ul
@@ -97,6 +106,9 @@ function App() {
           </li>
           <li className="context-menu-item" onClick={stepSimulation}>
             Step
+          </li>
+          <li className="context-menu-item" onClick={toggleShowChunks}>
+            {showChunks ? 'Hide Chunks' : 'Show Chunks'}
           </li>
         </ul>
       )}

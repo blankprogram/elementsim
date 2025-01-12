@@ -18,25 +18,24 @@ export const initializeWebGL = (canvas, gridWidth, gridHeight) => {
 
   const drawGrid = context({
     frag: `
-      precision mediump float;
-      varying vec2 uv;
-      uniform sampler2D stateTexture;
+    precision mediump float;
+    varying vec2 uv;
+    uniform sampler2D stateTexture;
 
-      void main() {
-        vec4 cellState = texture2D(stateTexture, uv);
-        
-        gl_FragColor = cellState.a > 0.0 ? cellState : vec4(0.0, 0.0, 0.0, 1.0);
-      }
-    `,
-    vert: `
-      attribute vec2 position;
-      varying vec2 uv;
+    void main() {
+      vec4 cellState = texture2D(stateTexture, uv);
+      gl_FragColor = cellState.a > 0.0 ? cellState : vec4(0.0, 0.0, 0.0, 1.0);
+    }
+  `,
+  vert: `
+    attribute vec2 position;
+    varying vec2 uv;
 
-      void main() {
-        uv = 0.5 * (position + 1.0);
-        gl_Position = vec4(position, 0, 1);
-      }
-    `,
+    void main() {
+      uv = 0.5 * (position + 1.0);
+      gl_Position = vec4(position, 0, 1);
+    }
+  `,
     attributes: {
       position: [
         [-1, -1],

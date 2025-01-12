@@ -4,9 +4,17 @@ import Empty from '../elements/EmptyCell';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
-const CHUNK_SIZE = 124; // Define size of each chunk in cells
+const CHUNK_SIZE = 16; // Define size of each chunk in cells
 
-const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimulationState }) => {
+const Grid = ({
+  rows,
+  cols,
+  selectedElement,
+  brushSize,
+  simulationState,
+  setSimulationState,
+  showChunks, // New prop to toggle chunk borders
+}) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const [tps, setTps] = useState(0);
@@ -15,7 +23,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   const activeChunksRef = useRef(new Set()); // Tracks active chunks
   const selectedElementRef = useRef(selectedElement);
   const brushSizeRef = useRef(brushSize);
-
+  const chunkCanvasRef = useRef(null);
   const isMouseDown = useRef(false);
   const [scale, setScale] = useState(1);
 
@@ -60,8 +68,37 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   const markChunkActive = (x, y) => {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkY = Math.floor(y / CHUNK_SIZE);
-    activeChunksRef.current.add(`${chunkX},${chunkY}`);
+  
+    const directions = [
+      { dx: 0, dy: 0 },  // Current chunk
+      { dx: -1, dy: 0 }, // Left
+      { dx: 1, dy: 0 },  // Right
+      { dx: 0, dy: -1 }, // Down
+      { dx: 0, dy: 1 },  // Up
+      { dx: -1, dy: -1 }, // Bottom-left
+      { dx: 1, dy: -1 },  // Bottom-right
+      { dx: -1, dy: 1 },  // Top-left
+      { dx: 1, dy: 1 },   // Top-right
+    ];
+  
+    directions.forEach(({ dx, dy }) => {
+      const neighborChunkX = chunkX + dx;
+      const neighborChunkY = chunkY + dy;
+  
+      // Validate that the chunk indices are within bounds
+      const isWithinBounds =
+        neighborChunkX >= 0 &&
+        neighborChunkX < Math.ceil(cols / CHUNK_SIZE) &&
+        neighborChunkY >= 0 &&
+        neighborChunkY < Math.ceil(rows / CHUNK_SIZE);
+  
+      if (isWithinBounds) {
+        activeChunksRef.current.add(`${neighborChunkX},${neighborChunkY}`);
+      }
+    });
   };
+  
+  
 
   
   const createGrid = React.useCallback((width, height) => {
@@ -95,7 +132,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
         colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
         colorBuffer.set(grid[toY][toX].getColor(), toIndex);
   
-        markChunkActive(fromX, fromY);
+     
         markChunkActive(toX, toY);
       }
     };
@@ -106,11 +143,12 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
           grid[y][x] = new ElementClass();
           const index = (y * width + x) * 4;
           colorBuffer.set(grid[y][x].getColor(), index);
-  
-          markChunkActive(x, y);
+    
+          markChunkActive(x, y); // Ensure the chunk is activated
         }
       }
     };
+    
   
     return { grid, colorBuffer, get, set, move, width, height };
   }, []);
@@ -197,7 +235,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
       data: colorBuffer,
       width: cols,
       height: rows,
-      flipY: true,
+
     });
   }, [cols, rows]);
 
@@ -217,39 +255,118 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   const drawBrushOutline = (ctx, position, radius, currElement) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
-
+  
     const isDeleting = currElement === 'Empty';
     const borderColor = isDeleting ? 'red' : 'blue';
     const fillColor = isDeleting ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 0, 255, 0.2)';
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = 2;
-
+  
+    const canvasHeight = ctx.canvas.height;
+    const gridX = position.x;
+    const gridY = position.y;
+  
+    const screenY = canvasHeight - gridY * CELL_SIZE - CELL_SIZE;
+  
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const distSquared = dx * dx + dy * dy;
         const withinCircle = distSquared <= radius * radius;
         const outsideInnerCircle = distSquared > (radius - 1) * (radius - 1);
-
+  
         if (withinCircle && outsideInnerCircle) {
-          const screenX = (position.x + dx) * CELL_SIZE;
-          const screenY = (position.y + dy) * CELL_SIZE;
-
+          const screenX = (gridX + dx) * CELL_SIZE;
+  
           ctx.fillStyle = fillColor;
-          ctx.fillRect(screenX, screenY, CELL_SIZE, CELL_SIZE);
-
+          ctx.fillRect(screenX, screenY + dy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+  
           ctx.beginPath();
-          ctx.moveTo(screenX, screenY);
-          ctx.lineTo(screenX + CELL_SIZE, screenY);
+          ctx.moveTo(screenX, screenY + dy * CELL_SIZE);
+          ctx.lineTo(screenX + CELL_SIZE, screenY + dy * CELL_SIZE);
           ctx.stroke();
-
+  
           ctx.beginPath();
-          ctx.moveTo(screenX, screenY);
-          ctx.lineTo(screenX, screenY + CELL_SIZE);
+          ctx.moveTo(screenX, screenY + dy * CELL_SIZE);
+          ctx.lineTo(screenX, screenY + (dy + 1) * CELL_SIZE);
           ctx.stroke();
         }
       }
     }
   };
+
+  useEffect(() => {
+    const drawChunkBorders = () => {
+      const chunkCanvas = chunkCanvasRef.current;
+      const ctx = chunkCanvas.getContext('2d');
+  
+      if (!showChunks) {
+        // Clear the canvas and return if showChunks is false
+        ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
+        return;
+      }
+  
+      const canvasHeight = chunkCanvas.height;
+  
+      // Clear the canvas and apply Y-axis flipping
+      ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
+      ctx.save(); // Save the context state
+      ctx.scale(1, -1); // Flip the Y-axis
+      ctx.translate(0, -canvasHeight); // Move the origin to the bottom-left
+  
+      const numChunksX = Math.ceil(cols / CHUNK_SIZE);
+      const numChunksY = Math.ceil(rows / CHUNK_SIZE);
+  
+      // Draw each chunk based on whether it's active
+      for (let chunkY = 0; chunkY < numChunksY; chunkY++) {
+        for (let chunkX = 0; chunkX < numChunksX; chunkX++) {
+          const chunkKey = `${chunkX},${chunkY}`;
+          const isActive = activeChunksRef.current.has(chunkKey);
+  
+          // Green for active chunks, red for inactive
+          ctx.fillStyle = isActive ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
+          const chunkStartX = chunkX * CHUNK_SIZE * CELL_SIZE;
+          const chunkStartY = chunkY * CHUNK_SIZE * CELL_SIZE;
+  
+          ctx.fillRect(chunkStartX, chunkStartY, CHUNK_SIZE * CELL_SIZE, CHUNK_SIZE * CELL_SIZE);
+        }
+      }
+  
+      // Draw grid lines
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+      ctx.lineWidth = 1;
+  
+      for (let x = 0; x <= cols; x += CHUNK_SIZE) {
+        const screenX = x * CELL_SIZE;
+        ctx.beginPath();
+        ctx.moveTo(screenX, 0);
+        ctx.lineTo(screenX, canvasHeight);
+        ctx.stroke();
+      }
+  
+      for (let y = 0; y <= rows; y += CHUNK_SIZE) {
+        const screenY = y * CELL_SIZE;
+        ctx.beginPath();
+        ctx.moveTo(0, screenY);
+        ctx.lineTo(cols * CELL_SIZE, screenY);
+        ctx.stroke();
+      }
+  
+      ctx.restore(); // Restore the context state to prevent affecting other drawings
+    };
+  
+    const intervalId = setInterval(() => {
+      drawChunkBorders();
+    }, 16); // Redraw every 16ms (~60FPS)
+  
+    return () => clearInterval(intervalId);
+  }, [cols, rows, showChunks]);
+  
+  
+  
+  
+  
+  
+  
 
   /**
    * Main effect: Sets up the simulation & WebGL, attaches listeners,
@@ -274,18 +391,22 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
     
     const getAdjustedMousePosition = (event) => {
       const rect = overlayCanvasRef.current.getBoundingClientRect();
-      
+    
+      // Calculate mouse position relative to the canvas
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+    
+      // Account for scaling applied to the canvas
       const scaleX = rect.width / (cols * CELL_SIZE);
       const scaleY = rect.height / (rows * CELL_SIZE);
-  
-      const mouseX = (event.clientX - rect.left) / scaleX;
-      const mouseY = (event.clientY - rect.top) / scaleY;
     
-      const gridX = Math.floor(mouseX / CELL_SIZE);
-      const gridY = Math.floor(mouseY / CELL_SIZE);
+      // Convert to grid coordinates, flipping the Y-axis
+      const gridX = Math.floor(mouseX / (CELL_SIZE * scaleX));
+      const gridY = Math.floor(rows - mouseY / (CELL_SIZE * scaleY)); // Flip Y-axis here
     
       return { gridX, gridY };
     };
+    
     
 
     const handleMouseMove = (event) => {
@@ -301,7 +422,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
     const handleMouseUp = () => {
       isMouseDown.current = false;
     };
-
+    
     overlayCanvas.addEventListener('mousedown', handleMouseDown);
     overlayCanvas.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -311,60 +432,39 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
   }, [createGrid, cols, rows]);
 
   useEffect(() => {
-    const fixedUpdateRate = 1000 / 60;
-    let lastSimTime = performance.now();
-    let tpsLastUpdateTime = performance.now();
+    let lastTime = performance.now();
     let tickCount = 0;
     let totalTickTime = 0;
   
-    const renderLoop = () => {
+    const intervalId = setInterval(() => {
+      if (!simulationRef.current) return;
+      const { colorBuffer } = simulationRef.current;
+  
+      const tickStart = performance.now(); // Start of the tick
+      simulate(simulationRef.current);
+      updateTexture(colorBuffer);
+      performDrawGrid();
+      const tickEnd = performance.now(); // End of the tick
+  
+      const tickDuration = tickEnd - tickStart;
+      totalTickTime += tickDuration;
+      tickCount++;
+  
       const now = performance.now();
-      const deltaSimTime = now - lastSimTime;
-      if (deltaSimTime >= fixedUpdateRate) {
-        if (simulationRef.current) {
-          const tickStart = performance.now();
-          simulate(simulationRef.current);
-          const tickEnd = performance.now();
-  
-          const tickTime = tickEnd - tickStart;
-          //FOR CAPPED TPS
-          //totalTickTime += Math.max(tickTime, fixedUpdateRate);
-          totalTickTime += tickTime;
-          tickCount++;
-          
-          // CAPPED TPS
-          //lastSimTime += fixedUpdateRate;
-
-          lastSimTime = now;
-        }
+      if (now - lastTime >= 1000) {
+        const avgTickTime = totalTickTime / tickCount; // Average tick time in ms
+        setTps(avgTickTime.toFixed(2)); // Update the state with the tick time (rounded to 2 decimals)
+        tickCount = 0;
+        totalTickTime = 0;
+        lastTime = now;
       }
+    }, 16);
   
-      if (simulationRef.current) {
-        const { colorBuffer } = simulationRef.current;
-        updateTexture(colorBuffer);
-        performDrawGrid();
-      }
-      
-      if (now - tpsLastUpdateTime >= 1000) {
-        if (tickCount > 0) {
-          const avgTickTime = totalTickTime / tickCount;
-          setTps(avgTickTime.toFixed(2));
-          tickCount = 0;
-          totalTickTime = 0;
-        }
-        tpsLastUpdateTime = now;
-      }
-      requestAnimationFrame(renderLoop);
-    };
-  
-    const animationId = requestAnimationFrame(renderLoop);
-    return () => cancelAnimationFrame(animationId);
+    return () => clearInterval(intervalId);
   }, [simulate, updateTexture]);
   
   
-  
-  
-  
+
 
 
   useEffect(() => {
@@ -389,6 +489,18 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
           zIndex: 1,
+        }}
+      />
+            <canvas
+        ref={chunkCanvasRef}
+        width={cols * CELL_SIZE}
+        height={rows * CELL_SIZE}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          position: 'absolute',
+          zIndex: 2,
+          pointerEvents: 'none', // Prevent interaction
         }}
       />
       <canvas
@@ -416,6 +528,7 @@ const Grid = ({ rows, cols, selectedElement, brushSize, simulationState ,setSimu
       >
         <p>TPS: {tps} ms</p>
         <p>Selected: {selectedElement}</p>
+        <p>Position: {mousePosition.x},{mousePosition.y}</p>
       </div>
     </div>
   );

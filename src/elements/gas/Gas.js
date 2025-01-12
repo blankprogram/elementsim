@@ -19,9 +19,9 @@ class Gas extends Element {
 
   attemptMovement(x, y, grid, move) {
     const movementOptions = [
-      { dx: 0, dy: -1, chance: 0.1 },
-      { dx: -1, dy: -1, chance: 0.1 },
-      { dx: 1, dy: -1, chance: 0.1 },
+      { dx: 0, dy: 1, chance: 0.1 },
+      { dx: -1, dy: 1, chance: 0.1 },
+      { dx: 1, dy: 1, chance: 0.1 },
       ...this.generateSidewaysOptions(x),
     ];
 
