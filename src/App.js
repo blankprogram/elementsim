@@ -12,7 +12,7 @@ function App() {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
   const [submenuVisible, setSubmenuVisible] = useState(null);
   const [simulationState, setSimulationState] = useState('running');
-  const [showChunks, setShowChunks] = useState(false); // New state for showing chunks
+  const [showChunks, setShowChunks] = useState(true);
 
   const toggleShowChunks = () => {
     setShowChunks((prev) => !prev);
@@ -64,8 +64,8 @@ function App() {
       onClick={closeContextMenu}
     >
       <Grid
-        rows={200}
-        cols={340}
+        rows={300}
+        cols={300}
         selectedElement={selectedElement}
         brushSize={brushSize}
         simulationState={simulationState}

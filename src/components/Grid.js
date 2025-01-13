@@ -137,7 +137,8 @@ const Grid = ({
       }
     };
   
-    const set = (x, y, ElementClass) => {
+    const set = (x, y) => {
+      const ElementClass = ElementType[selectedElementRef.current];
       if (x >= 0 && x < width && y >= 0 && y < height) {
         if (ElementClass) {
           grid[y][x] = new ElementClass();
@@ -175,7 +176,8 @@ const Grid = ({
       const endX = Math.min(startX + CHUNK_SIZE, width);
       const endY = Math.min(startY + CHUNK_SIZE, height);
   
-      for (let y = startY; y < endY; y++) {
+    for (let y = startY; y < endY; y++) {
+        // for (let y = endY - 1; y >= startY; y--) {
         const isLeftToRight = Math.random() > 0.5;
         const xRange = isLeftToRight
           ? { start: startX, end: endX, step: 1 }
@@ -207,7 +209,8 @@ const Grid = ({
   /**
    * Spawn an element in a circular region around (centerX, centerY).
    */
-  const spawnElement = (centerX, centerY, ElementClass) => {
+  const spawnElement = (centerX, centerY) => {
+    const ElementClass = ElementType[selectedElementRef.current];
     if (!simulationRef.current || !ElementClass) return;
     const { set } = simulationRef.current;
     const radius = brushSizeRef.current;
@@ -252,11 +255,15 @@ const Grid = ({
   /**
    * Draw the brush outline on the overlay canvas in screen coordinates.
    */
-  const drawBrushOutline = (ctx, position, radius, currElement) => {
+  const drawBrushOutline = () => {
+    const position = mousePosition
+    const ctx = overlayCanvasRef.current.getContext('2d');
+    const radius = brushSizeRef.current;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
-  
-    const isDeleting = currElement === 'Empty';
+    
+    const isDeleting = selectedElementRef.current === 'Empty';
+    
     const borderColor = isDeleting ? 'red' : 'blue';
     const fillColor = isDeleting ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 0, 255, 0.2)';
     ctx.strokeStyle = borderColor;
@@ -414,8 +421,7 @@ const Grid = ({
       setMousePosition({ x: gridX, y: gridY });
 
       if (isMouseDown.current) {
-        const ElementClass = ElementType[selectedElementRef.current];
-        spawnElement(gridX, gridY, ElementClass);
+        spawnElement(gridX, gridY);
       }
     };
 
@@ -468,14 +474,8 @@ const Grid = ({
 
 
   useEffect(() => {
-    const overlayCanvas = overlayCanvasRef.current;
-    const overlayCtx = overlayCanvas.getContext('2d');
     drawBrushOutline(
-      overlayCtx,
       mousePosition,
-      brushSize,
-      CELL_SIZE,
-      selectedElement,
     );
   }, [mousePosition, brushSize, selectedElement]);
 

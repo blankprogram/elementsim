@@ -1,46 +1,74 @@
 import Solid from '../Solid';
 import Empty from '../../EmptyCell';
-import Liquid from '../../liquid/Liquid';
 import Gas from '../../gas/Gas';
+import Liquid from '../../liquid/Liquid';
 
 class MovableSolid extends Solid {
+  constructor() {
+    super();
+    this.vel = { x: Math.random() > 0.5 ? -1 : 1, y: 1 }; // Initial velocity
+    this.gravity = 0.1; // Gravity to accelerate downward movement (supports decimals)
+    this.maxFallSpeed = 10; // Limit downward velocity
+    this.frictionFactor = 0.9; // Friction for horizontal movement
+    this.gravityAccumulator = 0; // Accumulates fractional gravity
+  }
+
   isSwappable(cell) {
-    return cell instanceof Empty || cell instanceof Liquid || cell instanceof Gas;
+    return cell instanceof Empty || cell instanceof Gas || cell instanceof Liquid;
+  }
+
+  applyGravity() {
+    this.gravityAccumulator += this.gravity;
+    if (this.gravityAccumulator >= 1) {
+      const gravityPixels = Math.floor(this.gravityAccumulator);
+      this.vel.y = Math.min(this.vel.y + gravityPixels, this.maxFallSpeed);
+      this.gravityAccumulator -= gravityPixels;
+    }
+  }
+
+  capVelocity() {
+    this.vel.x = Math.max(-10, Math.min(10, this.vel.x));
+    this.vel.y = Math.max(0, Math.min(this.maxFallSpeed, this.vel.y));
   }
 
   behavior(x, y, grid, move) {
-    const nextY = y - 1;
-  
-    if (nextY >= 0) {
-      const below = grid.get(x, nextY);
-  
-      if (this.isSwappable(below)) {
-        move(x, y, x, nextY);
-        return;
-      }
-  
-      const directions = [-1, 1];
-      for (const direction of directions) {
-        const targetX = x + direction;
-        const targetBelowY = nextY;
-  
-        if (
-          targetX >= 0 &&
-          targetX < grid.width &&
-          targetBelowY >= 0 &&
-          this.isSwappable(grid.get(targetX, targetBelowY))
-        ) {
-          const horizontalNeighbor = grid.get(x + direction, y);
-          if (horizontalNeighbor instanceof Empty) {
-            move(x, y, targetX, targetBelowY);
-            return;
-          }
-        }
+    this.applyGravity();
+    this.capVelocity();
+
+    if (this.tryMove(x, y, x, y - Math.floor(this.vel.y), grid, move)) {
+      return; // Successful downward movement
+    }
+
+    const diagonals = [
+      { dx: -1, dy: -Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: -Math.floor(this.vel.y) },  // Down-right
+    ];
+
+    for (const { dx, dy } of diagonals) {
+      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
+        return; // Successful diagonal movement
       }
     }
+
+    this.vel.x *= this.frictionFactor; // Apply friction if no movement
+    this.vel.y = 1; // Reset vertical velocity to default
   }
-  
-  
+
+  tryMove(x, y, targetX, targetY, grid, move) {
+    if (
+      targetX >= 0 &&
+      targetX < grid.width &&
+      targetY >= 0 &&
+      targetY < grid.height
+    ) {
+      const neighbor = grid.get(targetX, targetY);
+      if (this.isSwappable(neighbor)) {
+        move(x, y, targetX, targetY);
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 export default MovableSolid;

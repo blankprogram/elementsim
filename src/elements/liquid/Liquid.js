@@ -5,142 +5,98 @@ import Gas from '../gas/Gas';
 class Liquid extends Element {
   constructor() {
     super();
-    this.velocity = { x: 0, y: 0 }; // Movement velocity
-    this.gravity = -0.1; // Gravity increment
-    this.friction = 0.8; // Friction for horizontal velocity
-    this.dispersionRate = 5; // Maximum horizontal dispersion range
-    this.maxFallSpeed = -10; // Cap for vertical fall speed
-    this.density = 5; // Density of the liquid
-    this.horizontalDirection = Math.random() < 0.5 ? -1 : 1; // Initial direction
-    this.stoppedMovingCount = 0; // Counter for stopping
-    this.stoppedMovingThreshold = 10; // Threshold for stopping
+    this.vel = { x: Math.random() < 0.5 ? -1 : 1, y: 1 }; // Initial velocity
+    this.gravity = 0.1; // Gravity to accelerate downward movement (supports decimals)
+    this.maxFallSpeed = 10; // Limit downward velocity
+    this.gravityAccumulator = 0; // Accumulates fractional gravity
+    this.dispersionRate = 10; // Maximum horizontal dispersion range
+    this.horizontalDirection = Math.random() < 0.5 ? -1 : 1; // Initial horizontal direction
   }
 
-  // Check if the target cell is movable (Empty or Gas)
-  isMovable(cell) {
+  isSwappable(cell) {
     return cell instanceof Empty || cell instanceof Gas;
   }
 
-  // Main behavior of the liquid
+  applyGravity() {
+    this.gravityAccumulator += this.gravity;
+    if (this.gravityAccumulator >= 1) {
+      const gravityPixels = Math.floor(this.gravityAccumulator);
+      this.vel.y = Math.min(this.vel.y + gravityPixels, this.maxFallSpeed);
+      this.gravityAccumulator -= gravityPixels;
+    }
+  }
+
+  capVelocity() {
+    this.vel.x = Math.max(-10, Math.min(10, this.vel.x));
+    this.vel.y = Math.max(0, Math.min(this.maxFallSpeed, this.vel.y));
+  }
+
   behavior(x, y, grid, move) {
-    // Apply gravity and cap vertical velocity
-    this.velocity.y = Math.max(this.velocity.y + this.gravity, this.maxFallSpeed);
+    this.applyGravity();
+    this.capVelocity();
 
-    // Apply friction to horizontal velocity
-    this.velocity.x *= this.friction;
-
-    // Calculate movement deltas
-    const velX = Math.ceil(Math.abs(this.velocity.x));
-    const velY = Math.ceil(Math.abs(this.velocity.y));
-
-    // Attempt movement (vertical, diagonal, or horizontal)
-    if (!this.moveAndInteract(x, y, grid, move, velX, velY)) {
-      this.disperseHorizontally(x, y, grid, move); // Fallback to horizontal dispersion
+    // Attempt downward movement
+    if (this.tryMove(x, y, x, y - Math.floor(this.vel.y), grid, move)) {
+      return; // Successful downward movement
     }
 
-    // Increment stopped movement counter
-    this.stoppedMovingCount = this.velocity.y === 0 && this.velocity.x === 0
-      ? this.stoppedMovingCount + 1
-      : 0;
-
-    // Reset movement if stopped for too long
-    if (this.stoppedMovingCount > this.stoppedMovingThreshold) {
-      this.velocity.x = 0;
-      this.velocity.y = 0;
+    // Attempt diagonal movements if downward movement is blocked
+    const diagonals = [
+      { dx: -1, dy: -Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: -Math.floor(this.vel.y) },  // Down-right
+    ];
+    for (const { dx, dy } of diagonals) {
+      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
+        return; // Successful diagonal movement
+      }
     }
+
+    // Attempt horizontal dispersion if blocked
+    if (this.disperseHorizontally(x, y, grid, move)) {
+      return; // Successfully dispersed horizontally
+    }
+
+    // Reset vertical velocity to default if no movement occurred
+    this.vel.y = 1;
   }
 
-  // Move and interact with the environment
-  moveAndInteract(x, y, grid, move, velX, velY) {
-    let currentX = x;
-    let currentY = y;
-  
-    const xDirection = Math.sign(this.velocity.x) || this.horizontalDirection; // Default horizontal direction
-    const yDirection = Math.sign(this.velocity.y);
-    const steps = Math.max(velX, velY);
-  
-    for (let step = 1; step <= steps; step++) {
-      // Movement priorities: vertical > diagonal > horizontal
-      const targetY = currentY + (step <= velY ? yDirection : 0);
-      const targetX = currentX + (step <= velX ? xDirection : 0);
-  
-      // Attempt vertical movement first
-      if (
-        targetY >= 0 &&
-        targetY < grid.height &&
-        this.isMovable(grid.get(currentX, targetY))
-      ) {
-        move(currentX, currentY, currentX, targetY);
-        currentY = targetY;
-        continue;
-      }
-  
-      // Attempt diagonal movement
-      if (
-        targetX >= 0 &&
-        targetX < grid.width &&
-        targetY >= 0 &&
-        targetY < grid.height &&
-        this.isMovable(grid.get(targetX, targetY))
-      ) {
-        move(currentX, currentY, targetX, targetY);
-        currentX = targetX;
-        currentY = targetY;
-        continue;
-      }
-  
-      // Attempt horizontal movement
-      if (
-        targetX >= 0 &&
-        targetX < grid.width &&
-        this.isMovable(grid.get(targetX, currentY))
-      ) {
-        move(currentX, currentY, targetX, currentY);
-        currentX = targetX;
-        continue;
-      }
-  
-      // Stop if no valid movement is possible
-      return false;
-    }
-  
-    return true;
-  }
-  
-
-
-  // Attempt horizontal dispersion
   disperseHorizontally(x, y, grid, move) {
-    for (let i = 1; i <= this.dispersionRate; i++) {
-      const targetX = x + i * this.horizontalDirection;
+    for (let step = 1; step <= this.dispersionRate; step++) {
+      const targetX = x + step * this.horizontalDirection;
 
       if (
         targetX >= 0 &&
         targetX < grid.width &&
-        this.isMovable(grid.get(targetX, y)) &&
-        (y - 1 < 0 || !this.isMovable(grid.get(targetX, y - 1)))
+        this.isSwappable(grid.get(targetX, y)) &&
+        (y - 1 < 0 || !this.isSwappable(grid.get(targetX, y - 1))) // Ensure support below
       ) {
         move(x, y, targetX, y);
-        return;
+        return true; // Successfully moved horizontally
+      }
+
+      // Switch direction if blocked
+      else {
+        this.horizontalDirection *= -1; // Reverse direction
+       
       }
     }
-
-    // Switch direction if blocked
-    this.horizontalDirection *= -1;
+    return false; // No horizontal dispersion occurred
   }
 
-  // Swap positions with another liquid based on density
-  swapWithLiquid(grid, move, targetX, targetY, currentX, currentY) {
-    const targetCell = grid.get(targetX, targetY);
-
-    if (this.compareDensity(targetCell)) {
-      move(currentX, currentY, targetX, targetY);
+  tryMove(x, y, targetX, targetY, grid, move) {
+    if (
+      targetX >= 0 &&
+      targetX < grid.width &&
+      targetY >= 0 &&
+      targetY < grid.height
+    ) {
+      const neighbor = grid.get(targetX, targetY);
+      if (this.isSwappable(neighbor)) {
+        move(x, y, targetX, targetY);
+        return true; // Movement occurred
+      }
     }
-  }
-
-  // Compare densities between two liquids
-  compareDensity(other) {
-    return this.density > other.density;
+    return false; // Movement not possible
   }
 }
 
