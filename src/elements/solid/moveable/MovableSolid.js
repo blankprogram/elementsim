@@ -6,7 +6,7 @@ import Liquid from '../../liquid/Liquid';
 class MovableSolid extends Solid {
   constructor() {
     super();
-    this.vel = { x: Math.random() > 0.5 ? -1 : 1, y: 1 }; // Initial velocity
+    this.vel = { x: Math.random() > 0.5 ? -1 : 1, y: -1 }; // Initial velocity
     this.gravity = 0.1; // Gravity to accelerate downward movement (supports decimals)
     this.maxFallSpeed = 10; // Limit downward velocity
     this.frictionFactor = 0.9; // Friction for horizontal movement
@@ -21,27 +21,27 @@ class MovableSolid extends Solid {
     this.gravityAccumulator += this.gravity;
     if (this.gravityAccumulator >= 1) {
       const gravityPixels = Math.floor(this.gravityAccumulator);
-      this.vel.y = Math.min(this.vel.y + gravityPixels, this.maxFallSpeed);
+      this.vel.y = Math.max(this.vel.y - gravityPixels, -this.maxFallSpeed); // Ensure downward velocity is negative
       this.gravityAccumulator -= gravityPixels;
     }
   }
 
   capVelocity() {
     this.vel.x = Math.max(-10, Math.min(10, this.vel.x));
-    this.vel.y = Math.max(0, Math.min(this.maxFallSpeed, this.vel.y));
+    this.vel.y = Math.max(-this.maxFallSpeed, Math.min(0, this.vel.y)); // Cap downward velocity to negative range
   }
 
   behavior(x, y, grid, move) {
     this.applyGravity();
     this.capVelocity();
 
-    if (this.tryMove(x, y, x, y - Math.floor(this.vel.y), grid, move)) {
+    if (this.tryMove(x, y, x, y + Math.floor(this.vel.y), grid, move)) {
       return; // Successful downward movement
     }
 
     const diagonals = [
-      { dx: -1, dy: -Math.floor(this.vel.y) }, // Down-left
-      { dx: 1, dy: -Math.floor(this.vel.y) },  // Down-right
+      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
     ];
 
     for (const { dx, dy } of diagonals) {
@@ -51,7 +51,7 @@ class MovableSolid extends Solid {
     }
 
     this.vel.x *= this.frictionFactor; // Apply friction if no movement
-    this.vel.y = 1; // Reset vertical velocity to default
+    this.vel.y = -1; // Reset vertical velocity to default downward movement
   }
 
   tryMove(x, y, targetX, targetY, grid, move) {
