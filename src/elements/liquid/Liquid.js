@@ -5,12 +5,12 @@ import Gas from '../gas/Gas';
 class Liquid extends Element {
   constructor() {
     super();
-    this.vel = { x: Math.random() < 0.5 ? -1 : 1, y: -1 };
-    this.gravity = 0.2;
-    this.maxFallSpeed = 10;
-    this.gravityAccumulator = 0;
-    this.dispersionRate = 10;
-    this.bounceDampening = 0.4;
+    this.vel = { x: Math.random() < 0.5 ? -1 : 1, y: -1 }; // Initial velocity
+    this.gravity = 0.2; // Gravity to accelerate downward movement
+    this.maxFallSpeed = 10; // Limit downward velocity
+    this.frictionFactor = 0.9; // Friction for horizontal movement
+    this.gravityAccumulator = 0; // Accumulates fractional gravity
+    this.dispersionRate = 10; // Maximum range for horizontal dispersion
   }
 
   isSwappable(cell) {
@@ -21,69 +21,48 @@ class Liquid extends Element {
     this.gravityAccumulator += this.gravity;
     if (this.gravityAccumulator >= 1) {
       const gravityPixels = Math.floor(this.gravityAccumulator);
-      this.vel.y = Math.max(this.vel.y - gravityPixels, -this.maxFallSpeed);
+      this.vel.y = Math.max(this.vel.y - gravityPixels, -this.maxFallSpeed); // Ensure downward velocity is negative
       this.gravityAccumulator -= gravityPixels;
     }
   }
 
-  handleVerticalMovement(x, y, grid, move) {
-    while (true) {
-      const velocityY = Math.floor(this.vel.y);
-      const direction = velocityY > 0 ? 1 : -1;
-      let furthestY = y;
-
-      for (let step = 1; step <= Math.abs(velocityY); step++) {
-        const nextY = y + step * direction;
-        if (nextY >= 0 && nextY < grid.height && this.isSwappable(grid.get(x, nextY))) {
-          furthestY = nextY;
-        } else {
-          break;
-        }
-      }
-
-      if (furthestY !== y) {
-        move(x, y, x, furthestY);
-        return;
-      }
-
-      const nextY = y + velocityY;
-      if (nextY < 0 || nextY >= grid.height || !this.isSwappable(grid.get(x, nextY))) {
-        this.vel.y = -this.vel.y * this.bounceDampening;
-        if (Math.abs(this.vel.y) < 0.1) {
-          this.vel.y = -1;
-          return;
-        }
-      } else {
-        return;
-      }
-    }
-  }
-
-  handleDiagonalMovement(x, y, grid, move) {
-    const diagonals = [
-      { dx: -1, dy: Math.floor(this.vel.y) },
-      { dx: 1, dy: Math.floor(this.vel.y) },
-    ];
-    for (const { dx, dy } of diagonals) {
-      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
-        return true;
-      }
-    }
-    return false;
+  capVelocity() {
+    this.vel.x = Math.max(-10, Math.min(10, this.vel.x));
+    this.vel.y = Math.max(-this.maxFallSpeed, Math.min(0, this.vel.y)); // Cap downward velocity to negative range
   }
 
   behavior(x, y, grid, move) {
     this.applyGravity();
-    this.handleVerticalMovement(x, y, grid, move);
-    if (this.handleDiagonalMovement(x, y, grid, move)) {
-      return;
+    this.capVelocity();
+
+    // Try vertical movement
+    if (this.tryMove(x, y, x, y + Math.floor(this.vel.y), grid, move)) {
+      return; // Successful downward movement
     }
+
+    // Try diagonal movement
+    const diagonals = [
+      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
+    ];
+
+    for (const { dx, dy } of diagonals) {
+      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
+        return; // Successful diagonal movement
+      }
+    }
+
+    // Try horizontal dispersion
     this.disperseHorizontally(x, y, grid, move);
+
+    // Apply horizontal friction if no movement
+    this.vel.x *= this.frictionFactor;
+    this.vel.y = -1; // Reset vertical velocity to default downward movement
   }
 
   disperseHorizontally(x, y, grid, move) {
+    const direction = Math.sign(this.vel.x) || 1;
     for (let step = 1; step <= this.dispersionRate; step++) {
-      const direction = Math.sign(this.vel.x) || 1;
       const targetX = x + step * direction;
 
       if (
@@ -95,9 +74,10 @@ class Liquid extends Element {
         move(x, y, targetX, y);
         return true;
       }
-
-      this.vel.x *= -1;
     }
+
+    // Reverse horizontal direction if no valid move
+    this.vel.x *= -1;
     return false;
   }
 

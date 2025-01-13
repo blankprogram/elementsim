@@ -65,27 +65,26 @@ const Grid = ({
    * Create the simulation grid with the specified width/height.
    */
 
-  const markChunkActive = (x, y) => {
+  const markChunkActive = React.useCallback((x, y) => {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkY = Math.floor(y / CHUNK_SIZE);
   
     const directions = [
-      { dx: 0, dy: 0 },  // Current chunk
-      { dx: -1, dy: 0 }, // Left
-      { dx: 1, dy: 0 },  // Right
-      { dx: 0, dy: -1 }, // Down
-      { dx: 0, dy: 1 },  // Up
-      { dx: -1, dy: -1 }, // Bottom-left
-      { dx: 1, dy: -1 },  // Bottom-right
-      { dx: -1, dy: 1 },  // Top-left
-      { dx: 1, dy: 1 },   // Top-right
+      { dx: 0, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: -1 },
+      { dx: 1, dy: -1 },
+      { dx: -1, dy: 1 },
+      { dx: 1, dy: 1 },
     ];
   
     directions.forEach(({ dx, dy }) => {
       const neighborChunkX = chunkX + dx;
       const neighborChunkY = chunkY + dy;
   
-      // Validate that the chunk indices are within bounds
       const isWithinBounds =
         neighborChunkX >= 0 &&
         neighborChunkX < Math.ceil(cols / CHUNK_SIZE) &&
@@ -96,7 +95,8 @@ const Grid = ({
         activeChunksRef.current.add(`${neighborChunkX},${neighborChunkY}`);
       }
     });
-  };
+  }, [cols, rows]);
+  
   
   
 
@@ -152,7 +152,7 @@ const Grid = ({
     
   
     return { grid, colorBuffer, get, set, move, width, height };
-  }, []);
+  }, [markChunkActive]);
   
 
 
@@ -255,15 +255,14 @@ const Grid = ({
   /**
    * Draw the brush outline on the overlay canvas in screen coordinates.
    */
-  const drawBrushOutline = () => {
-    const position = mousePosition
+  const drawBrushOutline = React.useCallback(() => {
+    const position = mousePosition;
     const ctx = overlayCanvasRef.current.getContext('2d');
     const radius = brushSizeRef.current;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (position.x === null || position.y === null) return;
-    
+  
     const isDeleting = selectedElementRef.current === 'Empty';
-    
     const borderColor = isDeleting ? 'red' : 'blue';
     const fillColor = isDeleting ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 0, 255, 0.2)';
     ctx.strokeStyle = borderColor;
@@ -299,7 +298,8 @@ const Grid = ({
         }
       }
     }
-  };
+  }, [brushSizeRef, mousePosition, selectedElementRef]);
+  
 
   useEffect(() => {
     const drawChunkBorders = () => {
@@ -477,7 +477,7 @@ const Grid = ({
     drawBrushOutline(
       mousePosition,
     );
-  }, [mousePosition, brushSize, selectedElement]);
+  }, [mousePosition, brushSize, selectedElement,drawBrushOutline]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
