@@ -30,7 +30,26 @@ class MovableSolid extends Solid {
     this.vel.x = Math.max(-10, Math.min(10, this.vel.x));
     this.vel.y = Math.max(-this.maxFallSpeed, Math.min(0, this.vel.y)); // Cap downward velocity to negative range
   }
+  tryRandomDiagonalMovement(x, y, grid, move) {
+    const diagonals = [
+      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
+    ];
 
+    // Shuffle diagonals to randomize the movement order
+    for (let i = diagonals.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [diagonals[i], diagonals[j]] = [diagonals[j], diagonals[i]];
+    }
+
+    // Try each diagonal direction in randomized order
+    for (const { dx, dy } of diagonals) {
+      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
+        return true;
+      }
+    }
+    return false;
+  }
   behavior(x, y, grid, move) {
     this.applyGravity();
     this.capVelocity();
@@ -44,10 +63,9 @@ class MovableSolid extends Solid {
       { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
     ];
 
-    for (const { dx, dy } of diagonals) {
-      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
-        return; // Successful diagonal movement
-      }
+    // Try randomized diagonal movement
+    if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
+      return; // Successful diagonal movement
     }
 
     this.vel.x *= this.frictionFactor; // Apply friction if no movement

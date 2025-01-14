@@ -40,16 +40,9 @@ class Liquid extends Element {
       return; // Successful downward movement
     }
 
-    // Try diagonal movement
-    const diagonals = [
-      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
-      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
-    ];
-
-    for (const { dx, dy } of diagonals) {
-      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
-        return; // Successful diagonal movement
-      }
+    // Try randomized diagonal movement
+    if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
+      return; // Successful diagonal movement
     }
 
     // Try horizontal dispersion
@@ -58,6 +51,27 @@ class Liquid extends Element {
     // Apply horizontal friction if no movement
     this.vel.x *= this.frictionFactor;
     this.vel.y = -1; // Reset vertical velocity to default downward movement
+  }
+
+  tryRandomDiagonalMovement(x, y, grid, move) {
+    const diagonals = [
+      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
+      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
+    ];
+
+    // Shuffle diagonals to randomize the movement order
+    for (let i = diagonals.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [diagonals[i], diagonals[j]] = [diagonals[j], diagonals[i]];
+    }
+
+    // Try each diagonal direction in randomized order
+    for (const { dx, dy } of diagonals) {
+      if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   disperseHorizontally(x, y, grid, move) {
