@@ -64,8 +64,8 @@ function App() {
       onClick={closeContextMenu}
     >
       <Grid
-        rows={300}
-        cols={300}
+        rows={100}
+        cols={200}
         selectedElement={selectedElement}
         brushSize={brushSize}
         simulationState={simulationState}
