@@ -70,7 +70,7 @@ function App() {
         brushSize={brushSize}
         simulationState={simulationState}
         setSimulationState={setSimulationState}
-        showChunks={showChunks} // Pass showChunks state to Grid
+        showChunks={showChunks}
       />
       {contextMenu.visible && (
         <ul
