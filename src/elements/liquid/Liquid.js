@@ -31,7 +31,7 @@ class Liquid extends Element {
     this.vel.y = Math.max(-this.maxFallSpeed, Math.min(0, this.vel.y)); // Cap downward velocity to negative range
   }
 
-  behavior(x, y, grid, move) {
+  behavior(x, y, grid, move,step) {
     this.applyGravity();
     this.capVelocity();
 
@@ -41,7 +41,7 @@ class Liquid extends Element {
     }
 
     // Try randomized diagonal movement
-    if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
+    if (this.tryRandomDiagonalMovement(x, y, grid, move,step)) {
       return; // Successful diagonal movement
     }
 
@@ -53,19 +53,11 @@ class Liquid extends Element {
     this.vel.y = -1; // Reset vertical velocity to default downward movement
   }
 
-  tryRandomDiagonalMovement(x, y, grid, move) {
-    const diagonals = [
-      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
-      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
-    ];
-
-
-    for (let i = diagonals.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [diagonals[i], diagonals[j]] = [diagonals[j], diagonals[i]];
-    }
-
-    // Try each diagonal direction in randomized order
+  tryRandomDiagonalMovement(x, y, grid, move, step) {
+    const diagonals = step % 2 === 0
+      ? [{ dx: -1, dy: Math.floor(this.vel.y) }, { dx: 1, dy: Math.floor(this.vel.y) }] // Even step: Left then Right
+      : [{ dx: 1, dy: Math.floor(this.vel.y) }, { dx: -1, dy: Math.floor(this.vel.y) }]; // Odd step: Right then Left
+  
     for (const { dx, dy } of diagonals) {
       if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
         return true;
@@ -73,6 +65,7 @@ class Liquid extends Element {
     }
     return false;
   }
+  
 
   disperseHorizontally(x, y, grid, move) {
     const direction = Math.sign(this.vel.x) || 1;

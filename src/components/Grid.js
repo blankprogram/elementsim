@@ -153,43 +153,49 @@ const Grid = ({
   const simulate = React.useCallback(function simulate(sim) {
     const { get, move, width, height } = sim;
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
-  
+    
     const activeChunks = Array.from(activeChunksRef.current);
-    activeChunksRef.current.clear(); 
-  
+    activeChunksRef.current.clear();
+    
+    let step = 0; // Track the simulation step
+    
     for (const chunkKey of activeChunks) {
       const [chunkX, chunkY] = chunkKey.split(',').map(Number);
       const startX = chunkX * CHUNK_SIZE;
       const startY = chunkY * CHUNK_SIZE;
       const endX = Math.min(startX + CHUNK_SIZE, width);
       const endY = Math.min(startY + CHUNK_SIZE, height);
-  
-    for (let y = startY; y < endY; y++) {
-        // for (let y = endY - 1; y >= startY; y--) {
-        const isLeftToRight = Math.random() > 0.5;
+    
+      for (let y = startY; y < endY; y++) {
+        const isLeftToRight = step % 2 === 0; // Alternate left-to-right priority by step
         const xRange = isLeftToRight
           ? { start: startX, end: endX, step: 1 }
           : { start: endX - 1, end: startX - 1, step: -1 };
-  
+    
         for (let x = xRange.start; x !== xRange.end; x += xRange.step) {
           if (processed[y][x]) continue;
-  
+    
           const element = get(x, y);
-  
-          if (element instanceof Empty ) continue;
-  
+    
+          if (element instanceof Empty || element.isStatic()) continue;
+    
           const wrappedMove = (fromX, fromY, toX, toY) => {
             move(fromX, fromY, toX, toY);
             processed[fromY][fromX] = true;
             processed[toY][toX] = true;
           };
-  
-          element.behavior(x, y, sim, wrappedMove);
+    
+          const behaviorComplete = element.behavior(x, y, sim, wrappedMove, step);
+    
+          if (behaviorComplete) {
+            element.setStatic();
+          }
         }
       }
+      step++; // Increment step for each chunk processed
     }
-    
   }, []);
+  
   
   
   

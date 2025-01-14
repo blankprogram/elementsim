@@ -27,16 +27,11 @@ class MovableSolid extends Solid {
 
 
 
-  tryRandomDiagonalMovement(x, y, grid, move) {
-    const diagonals = [
-      { dx: -1, dy: Math.floor(this.vel.y) },
-      { dx: 1, dy: Math.floor(this.vel.y) }, 
-    ];
-    for (let i = diagonals.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [diagonals[i], diagonals[j]] = [diagonals[j], diagonals[i]];
-    }
-
+  tryRandomDiagonalMovement(x, y, grid, move, step) {
+    const diagonals = step % 2 === 0
+      ? [{ dx: -1, dy: Math.floor(this.vel.y) }, { dx: 1, dy: Math.floor(this.vel.y) }] // Even step: Left then Right
+      : [{ dx: 1, dy: Math.floor(this.vel.y) }, { dx: -1, dy: Math.floor(this.vel.y) }]; // Odd step: Right then Left
+  
     for (const { dx, dy } of diagonals) {
       if (this.tryMove(x, y, x + dx, y + dy, grid, move)) {
         return true;
@@ -54,7 +49,7 @@ class MovableSolid extends Solid {
     }
   }
 
-  behavior(x, y, grid, move) {
+  behavior(x, y, grid, move,step) {
     this.applyGravity();
 
 
@@ -62,7 +57,7 @@ class MovableSolid extends Solid {
       return;
     }
 
-    if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
+    if (this.tryRandomDiagonalMovement(x, y, grid, move,step)) {
       return;
     }
 
