@@ -6,13 +6,14 @@ import './App.css';
 const MAX_BRUSH_SIZE = 21;
 const MIN_BRUSH_SIZE = 1;
 
+
 function App() {
   const [selectedElement, setSelectedElement] = useState('Sand');
   const [brushSize, setBrushSize] = useState(1);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
   const [submenuVisible, setSubmenuVisible] = useState(null);
   const [simulationState, setSimulationState] = useState('running');
-  const [showChunks, setShowChunks] = useState(true);
+  const [showChunks, setShowChunks] = useState(false);
 
   const toggleShowChunks = () => {
     setShowChunks((prev) => !prev);

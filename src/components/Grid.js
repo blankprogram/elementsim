@@ -64,7 +64,7 @@ const Grid = ({
    * Create the simulation grid with the specified width/height.
    */
 
-  const markChunkActive = React.useCallback((x, y) => {
+  const markChunkActive = React.useCallback(function markChunkActive(x,y) {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkY = Math.floor(y / CHUNK_SIZE);
   
@@ -100,9 +100,9 @@ const Grid = ({
   
 
   
-  const createGrid = React.useCallback((width, height) => {
+  const createGrid = React.useCallback( function createGrid(width,height) {
   const grid = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => new ElementType.Empty('Empty')) // Use 'Empty' explicitly
+    Array.from({ length: width }, () => new ElementType.Empty('Empty'))
   );
 
   const colorBuffer = new Uint8Array(width * height * 4).fill(0);
@@ -111,17 +111,8 @@ const Grid = ({
     x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new ElementType.Empty('Empty');
 
   const move = (fromX, fromY, toX, toY) => {
-    if (
-      fromX >= 0 &&
-      fromX < width &&
-      fromY >= 0 &&
-      fromY < height &&
-      toX >= 0 &&
-      toX < width &&
-      toY >= 0 &&
-      toY < height &&
-      (fromX !== toX || fromY !== toY)
-    ) {
+
+    
       const temp = grid[toY][toX];
       grid[toY][toX] = grid[fromY][fromX];
       grid[fromY][fromX] = temp;
@@ -134,19 +125,19 @@ const Grid = ({
 
       markChunkActive(toX, toY);
       
-    }
+    
   };
 
   const set = (x, y) => {
     const ElementClass = ElementType[selectedElementRef.current];
     if (x >= 0 && x < width && y >= 0 && y < height) {
-      if (ElementClass) {
+
         grid[y][x] = new ElementClass(selectedElementRef.current);
         const index = (y * width + x) * 4;
 
         colorBuffer.set(grid[y][x].getColor(), index);
         markChunkActive(x, y);
-      }
+      
     }
   };
 
@@ -159,7 +150,7 @@ const Grid = ({
   /**
    * Run the sand/water simulation step.
    */
-  const simulate = React.useCallback((sim) => {
+  const simulate = React.useCallback(function simulate(sim) {
     const { get, move, width, height } = sim;
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
   
@@ -198,7 +189,7 @@ const Grid = ({
       }
     }
     
-  }, [simulationState, setSimulationState]);
+  }, []);
   
   
   
@@ -227,7 +218,7 @@ const Grid = ({
   /**
    * Update the GPU texture with the current color buffer.
    */
-  const updateTexture = React.useCallback((colorBuffer) => {
+  const updateTexture = React.useCallback(function updateTexture(colorBuffer)  {
     const { texture } = webglRef.current;
     if (!texture) return;
 
@@ -242,7 +233,7 @@ const Grid = ({
   /**
    * Execute Regl's draw call for the grid.
    */
-  const performDrawGrid = () => {
+  const performDrawGrid = function performDrawGrid() {
     const { drawGrid } = webglRef.current;
     if (drawGrid) {
       drawGrid();
@@ -252,7 +243,7 @@ const Grid = ({
   /**
    * Draw the brush outline on the overlay canvas in screen coordinates.
    */
-  const drawBrushOutline = React.useCallback(() => {
+  const drawBrushOutline = React.useCallback(function drawBrushOutline() {
     const position = mousePosition;
     const ctx = overlayCanvasRef.current.getContext('2d');
     const radius = brushSizeRef.current;
@@ -546,7 +537,7 @@ const Grid = ({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     color: 'white',
-    fontSize: '14px',
+    fontSize: '2px',
     fontFamily: 'Tahoma, Arial, sans-serif',
     fontWeight: 'bold',
     boxSizing: 'border-box', // Prevent dimensions from changing with padding/borders

@@ -24,8 +24,10 @@ export const initializeWebGL = (canvas, gridWidth, gridHeight) => {
 
     void main() {
       vec4 cellState = texture2D(stateTexture, uv);
-      gl_FragColor = cellState.a > 0.0 ? cellState : vec4(0.0, 0.0, 0.0, 1.0);
+      if (cellState.a == 0.0) discard;
+      gl_FragColor = cellState;
     }
+    
   `,
   vert: `
     attribute vec2 position;
