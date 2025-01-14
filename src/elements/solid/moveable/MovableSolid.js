@@ -58,10 +58,6 @@ class MovableSolid extends Solid {
       return; // Successful downward movement
     }
 
-    const diagonals = [
-      { dx: -1, dy: Math.floor(this.vel.y) }, // Down-left
-      { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
-    ];
 
     // Try randomized diagonal movement
     if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
