@@ -58,8 +58,6 @@ class MovableSolid extends Solid {
       return; // Successful downward movement
     }
 
-
-    // Try randomized diagonal movement
     if (this.tryRandomDiagonalMovement(x, y, grid, move)) {
       return; // Successful diagonal movement
     }
