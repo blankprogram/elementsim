@@ -16,7 +16,7 @@ const Grid = ({
 }) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
-  const [tps, setTps] = useState(0);
+  const fpsRef = useRef(null);
   const simulationRef = useRef(null);
   const webglRef = useRef({ texture: null, drawGrid: null });
   const activeChunksRef = useRef(new Set()); // Tracks active chunks
@@ -160,9 +160,6 @@ const Grid = ({
    * Run the sand/water simulation step.
    */
   const simulate = React.useCallback((sim) => {
-    if (simulationState === 'paused') return;
-    if (simulationState === 'step') setSimulationState('paused');
-  
     const { get, move, width, height } = sim;
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
   
@@ -438,40 +435,60 @@ const Grid = ({
   }, [createGrid, cols, rows]);
 
   useEffect(() => {
-    let lastTime = performance.now();
-    let tickCount = 0;
-    let totalTickTime = 0;
+    const FPS = 60;
+    const fpsInterval = 1000 / FPS;
   
-    const intervalId = setInterval(() => {
+    let then = performance.now();
+    let lastFPSUpdate = performance.now();
+    let frameCount = 0;
+    let isRunning = true;
+  
+    const runSimulation = () => {
       if (!simulationRef.current) return;
-      const { colorBuffer } = simulationRef.current;
-  
-      const tickStart = performance.now(); // Start of the tick
-      simulate(simulationRef.current);
-      updateTexture(colorBuffer);
-      performDrawGrid();
-      const tickEnd = performance.now(); // End of the tick
-  
-      const tickDuration = tickEnd - tickStart;
-      totalTickTime += tickDuration;
-      tickCount++;
   
       const now = performance.now();
-      if (now - lastTime >= 1000) {
-        const avgTickTime = totalTickTime / tickCount; // Average tick time in ms
-        setTps(avgTickTime.toFixed(2)); // Update the state with the tick time (rounded to 2 decimals)
-        tickCount = 0;
-        totalTickTime = 0;
-        lastTime = now;
+      const elapsed = now - then;
+  
+      if (elapsed >= fpsInterval) {
+        then = now - (elapsed % fpsInterval);
+  
+        if (simulationState === 'paused') {
+          const { colorBuffer } = simulationRef.current;
+          updateTexture(colorBuffer);
+          performDrawGrid();
+        } else {
+          simulate(simulationRef.current);
+          const { colorBuffer } = simulationRef.current;
+          updateTexture(colorBuffer);
+          performDrawGrid();
+  
+          if (simulationState === 'step') {
+            setSimulationState('paused');
+          }
+        }
+  
+        frameCount++;
       }
-    }, 16);
   
-    return () => clearInterval(intervalId);
-  }, [simulate, updateTexture]);
+      if (now - lastFPSUpdate >= 1000) {
+        fpsRef.current = frameCount;
+        frameCount = 0;
+        lastFPSUpdate = now;
+      }
+  
+      if (isRunning) {
+        requestAnimationFrame(runSimulation);
+      }
+    };
+  
+    requestAnimationFrame(runSimulation);
+  
+    return () => {
+      isRunning = false;
+    };
+  }, [simulate, updateTexture, simulationState, setSimulationState]);
   
   
-
-
 
   useEffect(() => {
     drawBrushOutline(
@@ -540,7 +557,7 @@ const Grid = ({
       margin: '10px', // Add spacing inside the div without changing its dimensions
     }}
   >
-    <p>TPS: {tps} ms</p>
+    <p>FPS: {fpsRef.current}</p>
     <p>Selected: {selectedElement}</p>
     <p>
       Position: {mousePosition.x},{mousePosition.y}

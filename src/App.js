@@ -64,7 +64,7 @@ function App() {
       onClick={closeContextMenu}
     >
       <Grid
-        rows={100}
+        rows={200}
         cols={200}
         selectedElement={selectedElement}
         brushSize={brushSize}
