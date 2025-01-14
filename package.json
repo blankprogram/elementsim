@@ -1,7 +1,7 @@
 {
   "name": "elementsim",
   "version": "0.1.0",
-
+  "homepage": "https://blankprogram.github.io/elementsim",
   "private": true,
   "dependencies": {
     "cra-template": "1.2.0",
