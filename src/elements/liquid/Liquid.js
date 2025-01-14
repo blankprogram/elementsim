@@ -59,7 +59,7 @@ class Liquid extends Element {
       { dx: 1, dy: Math.floor(this.vel.y) },  // Down-right
     ];
 
-    // Shuffle diagonals to randomize the movement order
+
     for (let i = diagonals.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [diagonals[i], diagonals[j]] = [diagonals[j], diagonals[i]];
