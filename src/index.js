@@ -1,19 +1,15 @@
+import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { HashRouter } from "react-router-dom";
-import './index.css';
+import ReactDOM from 'react-dom';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-
-// Use `PUBLIC_URL` to set the base path dynamically
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <HashRouter basename={process.env.PUBLIC_URL}>
+    <BrowserRouter basename={process.env.PUBLIC_URL}>
       <App />
-    </HashRouter>
+    </BrowserRouter>
   </React.StrictMode>
 );
 
-// Optional: Log performance metrics
 reportWebVitals();
