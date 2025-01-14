@@ -4,8 +4,7 @@ import Empty from '../elements/EmptyCell';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
-const CHUNK_SIZE = 16; // Define size of each chunk in cells
-console.log(ElementType)
+const CHUNK_SIZE = 8; // Define size of each chunk in cells
 const Grid = ({
   rows,
   cols,
@@ -134,6 +133,7 @@ const Grid = ({
       colorBuffer.set(grid[toY][toX].getColor(), toIndex);
 
       markChunkActive(toX, toY);
+      
     }
   };
 
