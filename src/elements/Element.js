@@ -1,10 +1,10 @@
 import ColorConstants from './ColorConstants';
 
 class Element {
-  constructor() {
-    this.type = this.constructor.name.toUpperCase();
-    this.color = ColorConstants.getColor(this.type);
-    this.static = false; // Default: dynamic
+  constructor(type) {
+    this.type = type;
+    this.color = ColorConstants.getColor(type);
+    this.static = false;
   }
 
   getColor() {

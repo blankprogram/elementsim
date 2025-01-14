@@ -44,12 +44,12 @@ const ColorConstants = {
   rainbowIndex: 0,
 
   getColor(type) {
-    const colors = this[type];
+    const colors = this[type.toUpperCase()];
     if (!colors) {
       throw new Error(`No colors defined for type: ${type}`);
     }
 
-    if (type === 'RAINBOWSAND') {
+    if (type.toUpperCase() === 'RAINBOWSAND') {
       const color = colors[this.rainbowIndex];
       this.rainbowIndex = (this.rainbowIndex + 1) % colors.length;
       return color;

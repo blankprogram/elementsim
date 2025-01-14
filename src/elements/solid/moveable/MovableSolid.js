@@ -4,8 +4,8 @@ import Gas from '../../gas/Gas';
 import Liquid from '../../liquid/Liquid';
 
 class MovableSolid extends Solid {
-  constructor() {
-    super();
+  constructor(type) {
+    super(type);
     this.vel = { x: Math.random() > 0.5 ? -1 : 1, y: -1 }; // Initial velocity
     this.gravity = 0.1; // Gravity to accelerate downward movement (supports decimals)
     this.maxFallSpeed = 10; // Limit downward velocity

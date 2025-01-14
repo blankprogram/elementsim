@@ -3,8 +3,8 @@ import Empty from '../EmptyCell';
 import Gas from '../gas/Gas';
 
 class Liquid extends Element {
-  constructor() {
-    super();
+  constructor(type) {
+    super(type);
     this.vel = { x: Math.random() < 0.5 ? -1 : 1, y: -1 }; // Initial velocity
     this.gravity = 0.2; // Gravity to accelerate downward movement
     this.maxFallSpeed = 10; // Limit downward velocity

@@ -2,8 +2,8 @@ import Element from '../Element';
 import Empty from '../EmptyCell';
 
 class Gas extends Element {
-  constructor() {
-    super();
+  constructor(type) {
+    super(type);
     this.sidewaysDirection = Math.random() < 0.5 ? -1 : 1;
     this.dispersalRange = 5;
   }

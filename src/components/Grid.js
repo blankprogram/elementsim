@@ -5,7 +5,7 @@ import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
 const CHUNK_SIZE = 16; // Define size of each chunk in cells
-
+console.log(ElementType)
 const Grid = ({
   rows,
   cols,
@@ -102,57 +102,57 @@ const Grid = ({
 
   
   const createGrid = React.useCallback((width, height) => {
-    const grid = Array.from({ length: height }, () =>
-      Array.from({ length: width }, () => new Empty())
-    );
-    const colorBuffer = new Uint8Array(width * height * 4).fill(0);
-  
-    const get = (x, y) =>
-      x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new Empty();
-  
-    const move = (fromX, fromY, toX, toY) => {
-      if (
-        fromX >= 0 &&
-        fromX < width &&
-        fromY >= 0 &&
-        fromY < height &&
-        toX >= 0 &&
-        toX < width &&
-        toY >= 0 &&
-        toY < height &&
-        (fromX !== toX || fromY !== toY)
-      ) {
-        const temp = grid[toY][toX];
-        grid[toY][toX] = grid[fromY][fromX];
-        grid[fromY][fromX] = temp;
-  
-        const fromIndex = (fromY * width + fromX) * 4;
-        const toIndex = (toY * width + toX) * 4;
-  
-        colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
-        colorBuffer.set(grid[toY][toX].getColor(), toIndex);
-  
-     
-        markChunkActive(toX, toY);
+  const grid = Array.from({ length: height }, () =>
+    Array.from({ length: width }, () => new ElementType.Empty('Empty')) // Use 'Empty' explicitly
+  );
+
+  const colorBuffer = new Uint8Array(width * height * 4).fill(0);
+
+  const get = (x, y) =>
+    x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new ElementType.Empty('Empty');
+
+  const move = (fromX, fromY, toX, toY) => {
+    if (
+      fromX >= 0 &&
+      fromX < width &&
+      fromY >= 0 &&
+      fromY < height &&
+      toX >= 0 &&
+      toX < width &&
+      toY >= 0 &&
+      toY < height &&
+      (fromX !== toX || fromY !== toY)
+    ) {
+      const temp = grid[toY][toX];
+      grid[toY][toX] = grid[fromY][fromX];
+      grid[fromY][fromX] = temp;
+
+      const fromIndex = (fromY * width + fromX) * 4;
+      const toIndex = (toY * width + toX) * 4;
+
+      colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
+      colorBuffer.set(grid[toY][toX].getColor(), toIndex);
+
+      markChunkActive(toX, toY);
+    }
+  };
+
+  const set = (x, y) => {
+    const ElementClass = ElementType[selectedElementRef.current];
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      if (ElementClass) {
+        grid[y][x] = new ElementClass(selectedElementRef.current);
+        const index = (y * width + x) * 4;
+
+        colorBuffer.set(grid[y][x].getColor(), index);
+        markChunkActive(x, y);
       }
-    };
-  
-    const set = (x, y) => {
-      const ElementClass = ElementType[selectedElementRef.current];
-      if (x >= 0 && x < width && y >= 0 && y < height) {
-        if (ElementClass) {
-          grid[y][x] = new ElementClass();
-          const index = (y * width + x) * 4;
-          colorBuffer.set(grid[y][x].getColor(), index);
-    
-          markChunkActive(x, y); // Ensure the chunk is activated
-        }
-      }
-    };
-    
-  
-    return { grid, colorBuffer, get, set, move, width, height };
-  }, [markChunkActive]);
+    }
+  };
+
+  return { grid, colorBuffer, get, set, move, width, height };
+}, [markChunkActive]);
+
   
 
 
@@ -167,7 +167,7 @@ const Grid = ({
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
   
     const activeChunks = Array.from(activeChunksRef.current);
-    activeChunksRef.current.clear(); // Clear active chunks after processing
+    activeChunksRef.current.clear(); 
   
     for (const chunkKey of activeChunks) {
       const [chunkX, chunkY] = chunkKey.split(',').map(Number);
@@ -188,7 +188,6 @@ const Grid = ({
   
           const element = get(x, y);
   
-          // Skip empty or static elements
           if (element instanceof Empty || element.isStatic()) continue;
   
           const wrappedMove = (fromX, fromY, toX, toY) => {
@@ -201,6 +200,7 @@ const Grid = ({
         }
       }
     }
+    
   }, [simulationState, setSimulationState]);
   
   
