@@ -537,7 +537,7 @@ const Grid = ({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     color: 'white',
-    fontSize: '2px',
+    fontSize: '14px',
     fontFamily: 'Tahoma, Arial, sans-serif',
     fontWeight: 'bold',
     boxSizing: 'border-box', // Prevent dimensions from changing with padding/borders
