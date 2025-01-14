@@ -5,6 +5,7 @@ import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
 const CHUNK_SIZE = 8; // Define size of each chunk in cells
+
 const Grid = ({
   rows,
   cols,
@@ -12,21 +13,20 @@ const Grid = ({
   brushSize,
   simulationState,
   setSimulationState,
-  showChunks, // New prop to toggle chunk borders
+  showChunks,
 }) => {
   const webGLCanvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
+  const chunkCanvasRef = useRef(null);
+  const [scale, setScale] = useState(1);
   const [tps, setTps] = useState(0);
+  const [mousePosition, setMousePosition] = useState({ x: null, y: null });
   const simulationRef = useRef(null);
   const webglRef = useRef({ texture: null, drawGrid: null });
-  const activeChunksRef = useRef(new Set()); // Tracks active chunks
+  const activeChunksRef = useRef(new Set());
   const selectedElementRef = useRef(selectedElement);
   const brushSizeRef = useRef(brushSize);
-  const chunkCanvasRef = useRef(null);
   const isMouseDown = useRef(false);
-  const [scale, setScale] = useState(1);
-
-  const [mousePosition, setMousePosition] = useState({ x: null, y: null });
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
@@ -42,15 +42,8 @@ const Grid = ({
       if (!overlayCanvas) return;
 
       const container = overlayCanvas.parentElement;
-      const containerWidth = container.offsetWidth;
-      const containerHeight = container.offsetHeight;
-
-      const canvasWidth = cols * CELL_SIZE;
-      const canvasHeight = rows * CELL_SIZE;
-
-      const scaleX = containerWidth / canvasWidth;
-      const scaleY = containerHeight / canvasHeight;
-
+      const scaleX = container.offsetWidth / (cols * CELL_SIZE);
+      const scaleY = container.offsetHeight / (rows * CELL_SIZE);
       setScale(Math.min(scaleX, scaleY));
     };
 
@@ -60,14 +53,9 @@ const Grid = ({
     return () => window.removeEventListener('resize', calculateScale);
   }, [cols, rows]);
 
-  /**
-   * Create the simulation grid with the specified width/height.
-   */
-
   const markChunkActive = React.useCallback((x, y) => {
     const chunkX = Math.floor(x / CHUNK_SIZE);
     const chunkY = Math.floor(y / CHUNK_SIZE);
-  
     const directions = [
       { dx: 0, dy: 0 },
       { dx: -1, dy: 0 },
@@ -79,149 +67,127 @@ const Grid = ({
       { dx: -1, dy: 1 },
       { dx: 1, dy: 1 },
     ];
-  
+
     directions.forEach(({ dx, dy }) => {
       const neighborChunkX = chunkX + dx;
       const neighborChunkY = chunkY + dy;
-  
-      const isWithinBounds =
+
+      if (
         neighborChunkX >= 0 &&
         neighborChunkX < Math.ceil(cols / CHUNK_SIZE) &&
         neighborChunkY >= 0 &&
-        neighborChunkY < Math.ceil(rows / CHUNK_SIZE);
-  
-      if (isWithinBounds) {
+        neighborChunkY < Math.ceil(rows / CHUNK_SIZE)
+      ) {
         activeChunksRef.current.add(`${neighborChunkX},${neighborChunkY}`);
       }
     });
   }, [cols, rows]);
-  
-  
-  
 
-  
   const createGrid = React.useCallback((width, height) => {
-  const grid = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => new ElementType.Empty('Empty')) // Use 'Empty' explicitly
-  );
+    const grid = Array.from({ length: height }, () =>
+      Array.from({ length: width }, () => new ElementType.Empty('Empty'))
+    );
 
-  const colorBuffer = new Uint8Array(width * height * 4).fill(0);
+    const colorBuffer = new Uint8Array(width * height * 4).fill(0);
 
-  const get = (x, y) =>
-    x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new ElementType.Empty('Empty');
+    const get = (x, y) =>
+      x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new ElementType.Empty('Empty');
 
-  const move = (fromX, fromY, toX, toY) => {
-    if (
-      fromX >= 0 &&
-      fromX < width &&
-      fromY >= 0 &&
-      fromY < height &&
-      toX >= 0 &&
-      toX < width &&
-      toY >= 0 &&
-      toY < height &&
-      (fromX !== toX || fromY !== toY)
-    ) {
-      const temp = grid[toY][toX];
-      grid[toY][toX] = grid[fromY][fromX];
-      grid[fromY][fromX] = temp;
+    const move = (fromX, fromY, toX, toY) => {
+      if (
+        fromX >= 0 &&
+        fromX < width &&
+        fromY >= 0 &&
+        fromY < height &&
+        toX >= 0 &&
+        toX < width &&
+        toY >= 0 &&
+        toY < height &&
+        (fromX !== toX || fromY !== toY)
+      ) {
+        const temp = grid[toY][toX];
+        grid[toY][toX] = grid[fromY][fromX];
+        grid[fromY][fromX] = temp;
 
-      const fromIndex = (fromY * width + fromX) * 4;
-      const toIndex = (toY * width + toX) * 4;
+        const fromIndex = (fromY * width + fromX) * 4;
+        const toIndex = (toY * width + toX) * 4;
 
-      colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
-      colorBuffer.set(grid[toY][toX].getColor(), toIndex);
+        colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
+        colorBuffer.set(grid[toY][toX].getColor(), toIndex);
 
-      markChunkActive(toX, toY);
-      
-    }
-  };
-
-  const set = (x, y) => {
-    const ElementClass = ElementType[selectedElementRef.current];
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-      if (ElementClass) {
-        grid[y][x] = new ElementClass(selectedElementRef.current);
-        const index = (y * width + x) * 4;
-
-        colorBuffer.set(grid[y][x].getColor(), index);
-        markChunkActive(x, y);
+        markChunkActive(toX, toY);
       }
-    }
-  };
+    };
 
-  return { grid, colorBuffer, get, set, move, width, height };
-}, [markChunkActive]);
+    const set = (x, y) => {
+      const ElementClass = ElementType[selectedElementRef.current];
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        if (ElementClass) {
+          grid[y][x] = new ElementClass(selectedElementRef.current);
+          const index = (y * width + x) * 4;
 
-  
+          colorBuffer.set(grid[y][x].getColor(), index);
+          markChunkActive(x, y);
+        }
+      }
+    };
 
+    return { grid, colorBuffer, get, set, move, width, height };
+  }, [markChunkActive]);
 
-  /**
-   * Run the sand/water simulation step.
-   */
   const simulate = React.useCallback((sim) => {
     if (simulationState === 'paused') return;
     if (simulationState === 'step') setSimulationState('paused');
-  
+
     const { get, move, width, height } = sim;
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
-  
+
     const activeChunks = Array.from(activeChunksRef.current);
-    activeChunksRef.current.clear(); 
-  
+    activeChunksRef.current.clear();
+
     for (const chunkKey of activeChunks) {
       const [chunkX, chunkY] = chunkKey.split(',').map(Number);
       const startX = chunkX * CHUNK_SIZE;
       const startY = chunkY * CHUNK_SIZE;
       const endX = Math.min(startX + CHUNK_SIZE, width);
       const endY = Math.min(startY + CHUNK_SIZE, height);
-  
-    for (let y = startY; y < endY; y++) {
-        // for (let y = endY - 1; y >= startY; y--) {
+
+      for (let y = startY; y < endY; y++) {
         const isLeftToRight = Math.random() > 0.5;
         const xRange = isLeftToRight
           ? { start: startX, end: endX, step: 1 }
           : { start: endX - 1, end: startX - 1, step: -1 };
-  
+
         for (let x = xRange.start; x !== xRange.end; x += xRange.step) {
           if (processed[y][x]) continue;
-  
+
           const element = get(x, y);
-  
-          if (element instanceof Empty || element.isStatic()) continue;
-  
+          if (element instanceof Empty) continue;
+
           const wrappedMove = (fromX, fromY, toX, toY) => {
             move(fromX, fromY, toX, toY);
             processed[fromY][fromX] = true;
             processed[toY][toX] = true;
           };
-  
+
           element.behavior(x, y, sim, wrappedMove);
         }
       }
     }
-    
   }, [simulationState, setSimulationState]);
-  
-  
-  
 
-  /**
-   * Spawn an element in a circular region around (centerX, centerY).
-   */
   const spawnElement = (centerX, centerY) => {
     const ElementClass = ElementType[selectedElementRef.current];
     if (!simulationRef.current || !ElementClass) return;
+
     const { set } = simulationRef.current;
     const radius = brushSizeRef.current;
 
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const distSquared = dx * dx + dy * dy;
-
         if (distSquared < radius * radius) {
-          set(centerX + dx, centerY + dy, ElementClass);
-
+          set(centerX + dx, centerY + dy);
         }
       }
     }
