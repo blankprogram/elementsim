@@ -122,7 +122,7 @@ const Grid = ({
 
       colorBuffer.set(grid[fromY][fromX].getColor(), fromIndex);
       colorBuffer.set(grid[toY][toX].getColor(), toIndex);
-
+      
       markChunkActive(toX, toY);
       
     

@@ -40,22 +40,37 @@ class MovableSolid extends Solid {
     return false;
   }
 
-  tryFalling(x,y,grid,move) {
-    if (this.tryMove(x, y, x, y + Math.floor(this.vel.y), grid, move)) {
+  tryFall(x, y, grid, move) {
+    let targetY = y + Math.floor(this.vel.y); // Calculate the furthest position based on velocity
+    targetY = Math.max(0, targetY); // Ensure we don't move out of bounds (above 0)
+  
+    let currentY = y;
+  
+    // Find the lowest swappable position
+    while (currentY > targetY && this.isSwappable(grid.get(x, currentY - 1))) {
+      currentY--; // Keep moving downward incrementally to find the furthest valid position
+    }
+  
+    // If a valid position was found, move there
+    if (currentY < y ) {
+      move(x, y, x, currentY); // Perform the move to the furthest valid position
       return true;
     }
-    else{
-      return false;
-    }
+  
+    // If no movement occurred, return false
+    return false;
   }
-
+  
   behavior(x, y, grid, move,step) {
     this.applyGravity();
 
 
-    if (this.tryFalling(x,y,grid,move)) {
+    if(this.tryFall(x,y,grid,move)) {
+      
       return;
     }
+
+    
 
     if (this.tryRandomDiagonalMovement(x, y, grid, move,step)) {
       return;

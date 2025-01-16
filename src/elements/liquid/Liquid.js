@@ -8,9 +8,8 @@ class Liquid extends Element {
     this.vel = { x: Math.random() < 0.5 ? -1 : 1, y: -1 }; // Initial velocity
     this.gravity = 0.2; // Gravity to accelerate downward movement
     this.maxFallSpeed = 10; // Limit downward velocity
-    this.frictionFactor = 0.9; // Friction for horizontal movement
     this.gravityAccumulator = 0; // Accumulates fractional gravity
-    this.dispersionRate = 10; // Maximum range for horizontal dispersion
+    this.dispersionRate = 5; // Maximum range for horizontal dispersion
   }
 
   isSwappable(cell) {
@@ -31,25 +30,47 @@ class Liquid extends Element {
     this.vel.y = Math.max(-this.maxFallSpeed, Math.min(0, this.vel.y)); // Cap downward velocity to negative range
   }
 
+  tryFall(x, y, grid, move) {
+    let targetY = y + Math.floor(this.vel.y); // Calculate the furthest position based on velocity
+    targetY = Math.max(0, targetY); // Ensure we don't move out of bounds (above 0)
+  
+    let currentY = y;
+  
+    // Find the lowest swappable position
+    while (currentY > targetY && this.isSwappable(grid.get(x, currentY - 1))) {
+      currentY--; // Keep moving downward incrementally to find the furthest valid position
+    }
+  
+    // If a valid position was found, move there
+    if (currentY < y ) {
+      move(x, y, x, currentY); // Perform the move to the furthest valid position
+      return true;
+    }
+  
+    // If no movement occurred, return false
+    return false;
+  }
+  
+  
+  
+
   behavior(x, y, grid, move,step) {
     this.applyGravity();
     this.capVelocity();
 
-    // Try vertical movement
-    if (this.tryMove(x, y, x, y + Math.floor(this.vel.y), grid, move)) {
-      return; // Successful downward movement
-    }
+  if (this.tryFall(x, y, grid, move)) {
+    return; // Successfully moved downward
+  }
 
-    // Try randomized diagonal movement
-    if (this.tryRandomDiagonalMovement(x, y, grid, move,step)) {
-      return; // Successful diagonal movement
-    }
+
+
+    (this.tryRandomDiagonalMovement(x, y, grid, move,step)) 
+
 
     // Try horizontal dispersion
     this.disperseHorizontally(x, y, grid, move);
 
     // Apply horizontal friction if no movement
-    this.vel.x *= this.frictionFactor;
     this.vel.y = -1; // Reset vertical velocity to default downward movement
   }
 
@@ -68,25 +89,44 @@ class Liquid extends Element {
   
 
   disperseHorizontally(x, y, grid, move) {
-    const direction = Math.sign(this.vel.x) || 1;
-    for (let step = 1; step <= this.dispersionRate; step++) {
-      const targetX = x + step * direction;
-
-      if (
-        targetX >= 0 &&
-        targetX < grid.width &&
-        this.isSwappable(grid.get(targetX, y)) &&
-        (y - 1 < 0 || !this.isSwappable(grid.get(targetX, y - 1)))
-      ) {
-        move(x, y, targetX, y);
-        return true;
+    let direction = Math.sign(this.vel.x) || 1; // Initial direction
+    let remainingSteps = this.dispersionRate; // Start with full dispersion range
+    let furthestPosition = x; // Track the furthest valid position
+  
+    while (remainingSteps > 0) {
+      const targetX = furthestPosition + direction; // Next position to check
+  
+      const targetCell = grid.get(targetX, y);
+      const belowCell = y - 1 >= 0 ? grid.get(targetX, y - 1) : null;
+  
+      if (targetX < 0 || targetX >= grid.width || !this.isSwappable(targetCell)) {
+        this.vel.x *= -1; // Reverse direction
+        direction = Math.sign(this.vel.x);
+        remainingSteps--; // Decrement remaining steps even on bounce
+        continue;
       }
+  
+      if (
+        this.isSwappable(targetCell) &&
+        (!belowCell || !this.isSwappable(belowCell))
+      ) {
+        furthestPosition = targetX;
+      } else {
+        break;
+      }
+  
+      remainingSteps--;
     }
-
-    // Reverse horizontal direction if no valid move
-    this.vel.x *= -1;
+  
+    if (furthestPosition !== x) {
+      move(x, y, furthestPosition, y);
+      return true;
+    }
     return false;
   }
+  
+  
+  
 
   tryMove(x, y, targetX, targetY, grid, move) {
     if (
