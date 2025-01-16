@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/elementsim/static/css/main.b70add06.css",
-    "main.js": "/elementsim/static/js/main.ba5e1c6f.js",
+    "main.css": "/elementsim/static/css/main.030255cb.css",
+    "main.js": "/elementsim/static/js/main.c9d59101.js",
     "static/js/488.f9e6f45d.chunk.js": "/elementsim/static/js/488.f9e6f45d.chunk.js",
     "index.html": "/elementsim/index.html",
-    "main.b70add06.css.map": "/elementsim/static/css/main.b70add06.css.map",
-    "main.ba5e1c6f.js.map": "/elementsim/static/js/main.ba5e1c6f.js.map",
+    "main.030255cb.css.map": "/elementsim/static/css/main.030255cb.css.map",
+    "main.c9d59101.js.map": "/elementsim/static/js/main.c9d59101.js.map",
     "488.f9e6f45d.chunk.js.map": "/elementsim/static/js/488.f9e6f45d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.b70add06.css",
-    "static/js/main.ba5e1c6f.js"
+    "static/css/main.030255cb.css",
+    "static/js/main.c9d59101.js"
   ]
 }
