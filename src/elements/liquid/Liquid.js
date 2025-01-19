@@ -64,7 +64,9 @@ class Liquid extends Element {
 
 
 
-    (this.tryRandomDiagonalMovement(x, y, grid, move,step)) 
+    if(this.tryRandomDiagonalMovement(x, y, grid, move,step)) {
+      return
+    }
 
 
     // Try horizontal dispersion

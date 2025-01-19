@@ -13,6 +13,8 @@ class Gas extends Element {
   }
 
   behavior(x, y, grid, move) {
+
+    grid.markChunkActive(x, y); 
     if (this.attemptMovement(x, y, grid, move)) return;
     this.reverseDirection();
   }

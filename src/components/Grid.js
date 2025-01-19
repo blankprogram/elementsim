@@ -4,7 +4,7 @@ import Empty from '../elements/EmptyCell';
 import { initializeWebGL } from '../utils/utils';
 
 const CELL_SIZE = 10;
-const CHUNK_SIZE = 8; // Define size of each chunk in cells
+const CHUNK_SIZE = 16; // Define size of each chunk in cells
 const Grid = ({
   rows,
   cols,
@@ -19,7 +19,6 @@ const Grid = ({
   const fpsRef = useRef(null);
   const simulationRef = useRef(null);
   const webglRef = useRef({ texture: null, drawGrid: null });
-  const activeChunksRef = useRef(new Set()); // Tracks active chunks
   const selectedElementRef = useRef(selectedElement);
   const brushSizeRef = useRef(brushSize);
   const chunkCanvasRef = useRef(null);
@@ -64,37 +63,7 @@ const Grid = ({
    * Create the simulation grid with the specified width/height.
    */
 
-  const markChunkActive = React.useCallback(function markChunkActive(x,y) {
-    const chunkX = Math.floor(x / CHUNK_SIZE);
-    const chunkY = Math.floor(y / CHUNK_SIZE);
-  
-    const directions = [
-      { dx: 0, dy: 0 },
-      { dx: -1, dy: 0 },
-      { dx: 1, dy: 0 },
-      { dx: 0, dy: -1 },
-      { dx: 0, dy: 1 },
-      { dx: -1, dy: -1 },
-      { dx: 1, dy: -1 },
-      { dx: -1, dy: 1 },
-      { dx: 1, dy: 1 },
-    ];
-  
-    directions.forEach(({ dx, dy }) => {
-      const neighborChunkX = chunkX + dx;
-      const neighborChunkY = chunkY + dy;
-  
-      const isWithinBounds =
-        neighborChunkX >= 0 &&
-        neighborChunkX < Math.ceil(cols / CHUNK_SIZE) &&
-        neighborChunkY >= 0 &&
-        neighborChunkY < Math.ceil(rows / CHUNK_SIZE);
-  
-      if (isWithinBounds) {
-        activeChunksRef.current.add(`${neighborChunkX},${neighborChunkY}`);
-      }
-    });
-  }, [cols, rows]);
+
   
   
   
@@ -106,6 +75,41 @@ const Grid = ({
   );
 
   const colorBuffer = new Uint8Array(width * height * 4).fill(0);
+
+  const activeChunks = new Set();
+
+
+  const markChunkActive = (x, y) => {
+    const chunkX = Math.floor(x / CHUNK_SIZE);
+    const chunkY = Math.floor(y / CHUNK_SIZE);
+
+    const directions = [
+      { dx: 0, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: -1 },
+      { dx: 1, dy: -1 },
+      { dx: -1, dy: 1 },
+      { dx: 1, dy: 1 },
+    ];
+
+    directions.forEach(({ dx, dy }) => {
+      const neighborChunkX = chunkX + dx;
+      const neighborChunkY = chunkY + dy;
+
+      const isWithinBounds =
+        neighborChunkX >= 0 &&
+        neighborChunkX < Math.ceil(width / CHUNK_SIZE) &&
+        neighborChunkY >= 0 &&
+        neighborChunkY < Math.ceil(height / CHUNK_SIZE);
+
+      if (isWithinBounds) {
+        activeChunks.add(`${neighborChunkX},${neighborChunkY}`);
+      }
+    });
+  };
 
   const get = (x, y) =>
     x >= 0 && x < width && y >= 0 && y < height ? grid[y][x] : new ElementType.Empty('Empty');
@@ -141,8 +145,8 @@ const Grid = ({
     }
   };
 
-  return { grid, colorBuffer, get, set, move, width, height };
-}, [markChunkActive]);
+  return { grid, colorBuffer, get, set, move, markChunkActive, width, height, activeChunks };
+}, []);
 
   
 
@@ -153,48 +157,58 @@ const Grid = ({
   const simulate = React.useCallback(function simulate(sim) {
     const { get, move, width, height } = sim;
     const processed = Array.from({ length: height }, () => Array(width).fill(false));
-    
-    const activeChunks = Array.from(activeChunksRef.current);
-    activeChunksRef.current.clear();
-    
-    let step = 0; // Track the simulation step
-    
+  
+    const activeChunks = Array.from(sim.activeChunks);
+    sim.activeChunks.clear();
+  
+    const activeCells = [];
     for (const chunkKey of activeChunks) {
       const [chunkX, chunkY] = chunkKey.split(',').map(Number);
       const startX = chunkX * CHUNK_SIZE;
       const startY = chunkY * CHUNK_SIZE;
       const endX = Math.min(startX + CHUNK_SIZE, width);
       const endY = Math.min(startY + CHUNK_SIZE, height);
-    
+  
       for (let y = startY; y < endY; y++) {
-        const isLeftToRight = step % 2 === 0; // Alternate left-to-right priority by step
-        const xRange = isLeftToRight
-          ? { start: startX, end: endX, step: 1 }
-          : { start: endX - 1, end: startX - 1, step: -1 };
-    
-        for (let x = xRange.start; x !== xRange.end; x += xRange.step) {
-          if (processed[y][x]) continue;
-    
-          const element = get(x, y);
-    
-          if (element instanceof Empty || element.isStatic()) continue;
-    
-          const wrappedMove = (fromX, fromY, toX, toY) => {
-            move(fromX, fromY, toX, toY);
-            processed[fromY][fromX] = true;
-            processed[toY][toX] = true;
-          };
-    
-          const behaviorComplete = element.behavior(x, y, sim, wrappedMove, step);
-    
-          if (behaviorComplete) {
-            element.setStatic();
+        const isLeftToRight = Math.random() > 0.5;
+        if (isLeftToRight) {
+          for (let x = startX; x < endX; x++) {
+            activeCells.push({ x, y });
+          }
+        } else {
+          for (let x = endX - 1; x >= startX; x--) {
+            activeCells.push({ x, y });
           }
         }
       }
-      step++; // Increment step for each chunk processed
+    }
+  
+    activeCells.sort((a, b) => a.y - b.y);
+  
+    for (const { x, y } of activeCells) {
+      if (processed[y][x]) continue;
+  
+      const element = get(x, y);
+  
+      if (element instanceof Empty || element.isStatic()) continue;
+  
+      const wrappedMove = (fromX, fromY, toX, toY) => {
+        move(fromX, fromY, toX, toY);
+        processed[fromY][fromX] = true;
+        processed[toY][toX] = true;
+      };
+  
+      const behaviorComplete = element.behavior(x, y, sim, wrappedMove);
+  
+      if (behaviorComplete) {
+        element.setStatic();
+      }
     }
   }, []);
+  
+  
+  
+  
   
   
   
@@ -317,11 +331,13 @@ const Grid = ({
       const numChunksX = Math.ceil(cols / CHUNK_SIZE);
       const numChunksY = Math.ceil(rows / CHUNK_SIZE);
   
+      const activeChunks = simulationRef.current?.activeChunks || new Set(); // Get active chunks from grid
+  
       // Draw each chunk based on whether it's active
       for (let chunkY = 0; chunkY < numChunksY; chunkY++) {
         for (let chunkX = 0; chunkX < numChunksX; chunkX++) {
           const chunkKey = `${chunkX},${chunkY}`;
-          const isActive = activeChunksRef.current.has(chunkKey);
+          const isActive = activeChunks.has(chunkKey);
   
           // Green for active chunks, red for inactive
           ctx.fillStyle = isActive ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
@@ -361,6 +377,7 @@ const Grid = ({
   
     return () => clearInterval(intervalId);
   }, [cols, rows, showChunks]);
+  
   
   
   
