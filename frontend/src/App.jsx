@@ -8,7 +8,10 @@ const App = () => {
   const aspectRatio = gridWidth / gridHeight;
   const [brushSize, setBrushSize] = useState(1); // State to track brush size
   const MIN_BRUSH_SIZE = 1;
-  const MAX_BRUSH_SIZE = 10;
+  const MAX_BRUSH_SIZE = 20;
+  const [frameTime, setFrameTime] = useState(0);
+  const mousePosRef = useRef({ x: 0, y: 0 });
+
 
   const brushSizeRef = useRef(brushSize);
 useEffect(() => {
@@ -23,8 +26,9 @@ useEffect(() => {
     let program;
     let buffer;
     let isDrawing = false;
-    let currentMousePos = { x: 0, y: 0 };
+
     let drawInterval;
+    let lastFrameTime = performance.now();
 
     const initialize = async () => {
       await init();
@@ -129,7 +133,7 @@ useEffect(() => {
         if (!isDrawing) {
           isDrawing = true;
           drawInterval = setInterval(() => {
-            spawnInRadius(currentMousePos.x, currentMousePos.y);
+            spawnInRadius(mousePosRef.current.x, mousePosRef.current.y);
           }, 50);
         }
       };
@@ -142,19 +146,23 @@ useEffect(() => {
       };
 
       // Event listeners
-      const handleMouseDown = (e) => {
-        currentMousePos = getMousePosition(e);
-        startDrawing();
+      const handleMouseMove = (e) => {
+        const pos = getMousePosition(e);
+
+        mousePosRef.current = pos; // Update ref
       };
 
-      const handleMouseMove = (e) => {
-        currentMousePos = getMousePosition(e);
+      const handleMouseDown = (e) => {
+        const pos = getMousePosition(e);
+
+        mousePosRef.current = pos; // Update ref
+        startDrawing();
       };
+      
 
       const handleMouseUp = stopDrawing;
 
       const handleScroll = (e) => {
-        e.preventDefault(); // Prevent page scroll
         setBrushSize((size) =>
           Math.max(MIN_BRUSH_SIZE, Math.min(MAX_BRUSH_SIZE, size + (e.deltaY < 0 ? 1 : -1)))
         );
@@ -164,7 +172,8 @@ useEffect(() => {
       canvas.addEventListener("mousedown", handleMouseDown);
       canvas.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
-      window.addEventListener("wheel", handleScroll);
+      window.addEventListener("wheel", handleScroll, { passive: false });
+
 
       const renderGrid = () => {
         const grid = game.get_grid();
@@ -223,10 +232,22 @@ useEffect(() => {
       };
 
       const stepSimulation = () => {
-        game.step();
-        renderGrid();
+        const now = performance.now();
+        const elapsed = now - lastFrameTime;
+      
+        const targetFrameTime = 1000 / 60; // 60 FPS => ~16.67ms per frame
+      
+        if (elapsed >= targetFrameTime) {
+          setFrameTime(elapsed.toFixed(2)); // Update frame time state
+          lastFrameTime = now;
+      
+          game.step();
+          renderGrid();
+        }
+      
         requestAnimationFrame(stepSimulation);
       };
+      
 
       stepSimulation();
 
@@ -270,15 +291,28 @@ useEffect(() => {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        display: "block",
-        margin: 0,
-        padding: 0,
-        backgroundColor: "black",
-      }}
-    />
+    <div>
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: "block",
+          margin: 0,
+          padding: 0,
+          backgroundColor: "black",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "10px",
+          left: "10px",
+          color: "white",
+          fontFamily: "monospace",
+        }}
+      >
+        Frame Time: {Math.round(1000/frameTime)} ms | Mouse Position: {`x: ${mousePosRef.current.x}, y: ${mousePosRef.current.y}`}
+      </div>
+    </div>
   );
 };
 
