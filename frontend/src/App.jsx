@@ -3,8 +3,8 @@ import init, { SandGame } from "../../backend/pkg";
 
 const App = () => {
   const canvasRef = useRef(null);
-  const gridWidth = 200;
-  const gridHeight = 200;
+  const gridWidth = 300;
+  const gridHeight = 300;
   const chunkSize = 20;
 
   const [brushSize, setBrushSize] = useState(1);
@@ -66,7 +66,6 @@ const App = () => {
 
   const toggleShowChunks = () => {
     showChunksRef.current = !showChunksRef.current;
-    console.log("Show chunks:", showChunksRef.current);
   };
 
 

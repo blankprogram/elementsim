@@ -43,7 +43,6 @@ impl SandGame {
                 2 => Cell::Water,
                 _ => Cell::Empty,
             };
-
             self.activate_chunk(x, inverted_y);
         }
     }
@@ -60,75 +59,80 @@ impl SandGame {
     }
 
     pub fn step(&mut self) {
+        let mut rng = rand::thread_rng();
         let chunk_count_x = (self.width + self.chunk_size - 1) / self.chunk_size;
         let chunk_count_y = (self.height + self.chunk_size - 1) / self.chunk_size;
-
-        for chunk_y in 0..chunk_count_y {
-            for chunk_x in 0..chunk_count_x {
-                if !self.is_chunk_active(chunk_x, chunk_y) {
-                    continue;
-                }
-
-                let start_x = chunk_x * self.chunk_size;
-                let end_x = (start_x + self.chunk_size).min(self.width);
-
-                let start_y = chunk_y * self.chunk_size;
-                let end_y = (start_y + self.chunk_size).min(self.height);
-
-                let mut updated = false;
-
-                for y in start_y..end_y {
-                    for x in start_x..end_x {
-                        if self.update_cell(x, y) {
-                            updated = true;
-                        }
-                    }
-                }
-
-                if !updated {
-                    self.deactivate_chunk(chunk_x, chunk_y);
+    
+        let mut next_active_chunks = vec![false; chunk_count_x * chunk_count_y];
+    
+        // Process grid bottom-to-top
+        for y in 0..self.height {
+            // Randomly decide left-to-right or right-to-left for this row
+            let x_range: Box<dyn Iterator<Item = usize>> = if rng.gen_bool(0.5) {
+                Box::new(0..self.width)
+            } else {
+                Box::new((0..self.width).rev())
+            };
+    
+            for x in x_range {
+                let chunk_x = x / self.chunk_size;
+                let chunk_y = y / self.chunk_size;
+    
+                // Only process cells in active chunks
+                if self.is_chunk_active(chunk_x, chunk_y) && self.update_cell(x, y) {
+                    self.mark_neighbors_active(chunk_x, chunk_y, &mut next_active_chunks);
                 }
             }
         }
+    
+        // Update active chunks for the next step
+        self.active_chunks = next_active_chunks;
     }
+    
+    
 
     fn update_cell(&mut self, x: usize, y: usize) -> bool {
+        if y == 0 {
+            return false;
+        }
+
         let index = self.index(x, y);
+        let below = self.index(x, y - 1);
 
         match self.grid[index] {
-            Cell::Sand => {
-                if y > 0 {
-                    let below = self.index(x, y - 1);
-                    if self.grid[below] == Cell::Empty {
-                        self.grid.swap(index, below);
-                        self.activate_surrounding_chunks(x, y - 1);
-                        return true;
-                    }
+            Cell::Sand | Cell::Water => {
+                if self.try_move(index, below) {
+                    return true;
                 }
-            }
-            Cell::Water => {
-                if y > 0 {
-                    let below = self.index(x, y - 1);
-                    if self.grid[below] == Cell::Empty {
-                        self.grid.swap(index, below);
-                        self.activate_surrounding_chunks(x, y - 1);
+
+                if self.grid[index] == Cell::Sand {
+                    let left_below = x.checked_sub(1).map(|lx| self.index(lx, y - 1));
+                    let right_below = if x + 1 < self.width {
+                        Some(self.index(x + 1, y - 1))
+                    } else {
+                        None
+                    };
+
+                    if rand::random() {
+                        if left_below.map_or(false, |i| self.try_move(index, i)) {
+                            return true;
+                        }
+                    } else if right_below.map_or(false, |i| self.try_move(index, i)) {
                         return true;
                     }
-                }
-                let mut rng = rand::thread_rng();
-                let direction = rng.gen_bool(0.5);
-                if direction && x > 0 {
-                    let left = self.index(x - 1, y);
-                    if self.grid[left] == Cell::Empty {
-                        self.grid.swap(index, left);
-                        self.activate_surrounding_chunks(x - 1, y);
-                        return true;
-                    }
-                } else if !direction && x + 1 < self.width {
-                    let right = self.index(x + 1, y);
-                    if self.grid[right] == Cell::Empty {
-                        self.grid.swap(index, right);
-                        self.activate_surrounding_chunks(x + 1, y);
+                } else {
+                    let left = x.checked_sub(1).map(|lx| self.index(lx, y));
+                    let right = if x + 1 < self.width {
+                        Some(self.index(x + 1, y))
+                    } else {
+                        None
+                    };
+
+                    if rand::random() {
+                        if left.map_or(false, |i| self.try_move(index, i)) {
+                            return true;
+                        }
+                    } else if right.map_or(false, |i| self.try_move(index, i)) {
                         return true;
                     }
                 }
@@ -139,45 +143,47 @@ impl SandGame {
         false
     }
 
+    fn try_move(&mut self, from: usize, to: usize) -> bool {
+        if self.grid[to] == Cell::Empty {
+            self.grid.swap(from, to);
+            true
+        } else {
+            false
+        }
+    }
+
     fn activate_chunk(&mut self, x: usize, y: usize) {
         let chunk_x = x / self.chunk_size;
         let chunk_y = y / self.chunk_size;
         let chunk_index = self.chunk_index(chunk_x, chunk_y);
 
-        if let Some(chunk) = self.active_chunks.get_mut(chunk_index) {
-            *chunk = true;
+        if let Some(active) = self.active_chunks.get_mut(chunk_index) {
+            if !*active {
+                *active = true;
+            }
         }
     }
 
-    fn deactivate_chunk(&mut self, chunk_x: usize, chunk_y: usize) {
-        let chunk_index = self.chunk_index(chunk_x, chunk_y);
+    fn mark_neighbors_active(&self, chunk_x: usize, chunk_y: usize, next_active_chunks: &mut Vec<bool>) {
+        let chunk_count_x = (self.width + self.chunk_size - 1) / self.chunk_size;
+        let chunk_count_y = (self.height + self.chunk_size - 1) / self.chunk_size;
 
-        if let Some(chunk) = self.active_chunks.get_mut(chunk_index) {
-            *chunk = false;
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                let nx = (chunk_x as isize + dx) as usize;
+                let ny = (chunk_y as isize + dy) as usize;
+
+                if nx < chunk_count_x && ny < chunk_count_y {
+                    let neighbor_index = self.chunk_index(nx, ny);
+                    next_active_chunks[neighbor_index] = true;
+                }
+            }
         }
     }
 
     pub fn is_chunk_active(&self, chunk_x: usize, chunk_y: usize) -> bool {
         let chunk_index = self.chunk_index(chunk_x, chunk_y);
-
         self.active_chunks.get(chunk_index).copied().unwrap_or(false)
-    }
-
-    fn activate_surrounding_chunks(&mut self, x: usize, y: usize) {
-        let chunk_x = x / self.chunk_size;
-        let chunk_y = y / self.chunk_size;
-
-        self.activate_chunk(x, y);
-        for dy in -1..=1 {
-            for dx in -1..=1 {
-                let nx = chunk_x as isize + dx;
-                let ny = chunk_y as isize + dy;
-
-                if nx >= 0 && ny >= 0 {
-                    self.activate_chunk(nx as usize * self.chunk_size, ny as usize * self.chunk_size);
-                }
-            }
-        }
     }
 
     fn chunk_index(&self, chunk_x: usize, chunk_y: usize) -> usize {
