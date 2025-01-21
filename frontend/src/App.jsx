@@ -6,35 +6,35 @@ const App = () => {
   const gridWidth = 200;
   const gridHeight = 200;
   const chunkSize = 20;
-  const aspectRatio = gridWidth / gridHeight;
+
   const [brushSize, setBrushSize] = useState(1);
   const MIN_BRUSH_SIZE = 1;
   const MAX_BRUSH_SIZE = 20;
+
   const [frameTime, setFrameTime] = useState(0);
-  const frameTimes = useRef([]); // Keep track of recent frame times
-  const smoothingWindow = 10; // Number of frames to smooth over
+  const frameTimes = useRef([]);
+  const smoothingWindow = 10;
+
   const mousePosRef = useRef({ x: -1, y: -1 });
   const [selectedElement, setSelectedElement] = useState("Sand");
-  const [contextMenu, setContextMenu] = useState({
-    visible: false,
-    x: 0,
-    y: 0,
-  });
-  const [submenuVisible, setSubmenuVisible] = useState(null);
-
-
-  const [showChunks, setShowChunks] = useState(false);
-  const showChunksRef = useRef(false);
 
   const simulationStateRef = useRef("running");
   const selectedElementRef = useRef("Sand");
   const brushSizeRef = useRef(brushSize);
 
+
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
+
+  const [submenuVisible, setSubmenuVisible] = useState(null);
+  const showChunksRef = useRef(false);
+
   useEffect(() => {
     selectedElementRef.current = selectedElement;
   }, [selectedElement]);
-
-
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -68,492 +68,475 @@ const App = () => {
     showChunksRef.current = !showChunksRef.current;
     console.log("Show chunks:", showChunksRef.current);
   };
-  
+
 
   const toggleSubmenu = (menu) => setSubmenuVisible(menu);
 
-  useEffect(() => {
-    brushSizeRef.current = brushSize;
-  }, [brushSize]);
+  const setupCanvas = (gl, canvas, gridWidth, gridHeight) => {
+    const resizeCanvas = () => {
+      const aspectRatio = gridWidth / gridHeight;
+      const windowAspect = window.innerWidth / window.innerHeight;
 
-  useEffect(() => {
-    let game;
-    let gl;
-    let texture;
-    let program;
-    let buffer;
-    let isDrawing = false;
+      if (windowAspect > aspectRatio) {
+        canvas.height = window.innerHeight;
+        canvas.width = canvas.height * aspectRatio;
+      } else {
+        canvas.width = window.innerWidth;
+        canvas.height = canvas.width / aspectRatio;
+      }
 
-    let drawInterval;
-    let lastFrameTime = performance.now();
+      canvas.style.position = "absolute";
+      canvas.style.left = `${(window.innerWidth - canvas.width) / 2}px`;
+      canvas.style.top = `${(window.innerHeight - canvas.height) / 2}px`;
 
-    const initialize = async () => {
-      await init();
-      game = new SandGame(gridWidth, gridHeight);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    };
 
-      const canvas = canvasRef.current;
-      gl = canvas.getContext("webgl");
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+  };
 
-      // Set up the WebGL program
-      const vertexShaderSource = `
-        attribute vec2 a_position;
-        varying vec2 v_texCoord;
-        void main() {
-          gl_Position = vec4(a_position, 0.0, 1.0);
-          v_texCoord = a_position * 0.5 + 0.5;
-        }
-      `;
-      const fragmentShaderSource = `
+  const createGridProgram = (gl) => {
+    const vertexSource = `
+      attribute vec2 a_position;
+      varying vec2 v_texCoord;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        v_texCoord = a_position * 0.5 + 0.5;
+      }
+    `;
+    const fragmentSource = `
       precision mediump float;
       varying vec2 v_texCoord;
       uniform sampler2D u_texture;
-      uniform vec2 u_mousePosition; // In NDC
-      uniform float u_brushSize;    // In grid cells
-      uniform vec2 u_gridSize;      // Grid size (in cells)
-      uniform int u_selectedElement; // 0 for Empty, 1 for Sand, 2 for Water
-      
-      // Helper function to calculate if a cell is on the circle's border
-      bool isOnPixelCircle(vec2 gridCoord, vec2 center, float radius) {
-          float distanceSquared = (gridCoord.x - center.x) * (gridCoord.x - center.x) +
-                                  (gridCoord.y - center.y) * (gridCoord.y - center.y);
-          return distanceSquared >= (radius - 0.5) * (radius - 0.5) &&
-                 distanceSquared <= (radius + 0.5) * (radius + 0.5);
-      }
-      
       void main() {
-          vec4 gridColor = texture2D(u_texture, v_texCoord); // Current grid color
-          vec2 gridCoord = floor(v_texCoord * u_gridSize);   // Grid space coordinate
-      
-          vec2 brushCenter = vec2(
-              (u_mousePosition.x * 0.5 + 0.5) * u_gridSize.x,
-              (u_mousePosition.y * 0.5 + 0.5) * u_gridSize.y - 1.0
-          );
-      
-          if (isOnPixelCircle(gridCoord, brushCenter, u_brushSize)) {
-              vec4 brushColor = (u_selectedElement == 0) 
-                  ? vec4(1.0, 0.0, 0.0, 0.5) // Semi-transparent red for Empty
-                  : vec4(0.0, 0.0, 1.0, 0.5); // Semi-transparent blue for others
-              
-              // Blend brush color with the grid color
-              gl_FragColor = mix(gridColor, brushColor, brushColor.a);
-          } else {
-              gl_FragColor = gridColor;
-          }
+        gl_FragColor = texture2D(u_texture, v_texCoord);
       }
-      
     `;
+    return createProgram(gl, vertexSource, fragmentSource);
+  };
 
-      program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+  const createChunkOverlayProgram = (gl) => {
+    const vertexSource = `
+      attribute vec2 a_position;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+    const fragmentSource = `
+      precision mediump float;
+      uniform vec4 u_color;
+      void main() {
+        gl_FragColor = u_color;
+      }
+    `;
+    return createProgram(gl, vertexSource, fragmentSource);
+  };
 
-      const createChunkOverlayProgram = () => {
-        const vertexShaderSource = `
-            attribute vec2 a_position;
-            void main() {
-                gl_Position = vec4(a_position, 0.0, 1.0);
-            }
-        `;
-        const fragmentShaderSource = `
-            precision mediump float;
-            uniform vec4 u_color;
-            void main() {
-                gl_FragColor = u_color;
-            }
-        `;
-        return createProgram(gl, vertexShaderSource, fragmentShaderSource);
-    };
-    
-    const chunkOverlayProgram = createChunkOverlayProgram();
+  const createBrushProgram = (gl) => {
+    const vertexSource = `
+      attribute vec2 a_position;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        gl_PointSize = 2.0;
+      }
+    `;
+    const fragmentSource = `
+      precision mediump float;
+      uniform vec4 u_color;
+      void main() {
+        gl_FragColor = u_color;
+      }
+    `;
+    return createProgram(gl, vertexSource, fragmentSource);
+  };
 
-    const createBrushProgram = (gl) => {
-      const vertexShaderSource = `
-        attribute vec2 a_position;
-        uniform vec2 u_mousePosition; // In NDC
-        uniform float u_brushSize;    // In NDC
-        void main() {
-          gl_Position = vec4(a_position * u_brushSize + u_mousePosition, 0.0, 1.0);
+
+  const createFullScreenQuadBuffer = (gl) => {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        -1, -1, 1, -1, -1, 1,
+        -1, 1, 1, -1, 1, 1,
+      ]),
+      gl.STATIC_DRAW
+    );
+    return buffer;
+  };
+
+  const createTexture = (gl, width, height) => {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    return texture;
+  };
+
+  const renderGrid = (gl, program, buffer, texture, gridWidth, gridHeight, game) => {
+    // Use the grid program
+    gl.useProgram(program);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Bind the grid buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+    // Enable position attribute
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    // Update the texture with the game's grid data
+    const gridData = game.get_grid();
+    const pixels = new Uint8Array(gridWidth * gridHeight * 4);
+
+    for (let i = 0; i < gridData.length; i++) {
+      const value = gridData[i];
+      const base = i * 4;
+
+      if (value === 1) {
+        // Sand (Yellow)
+        pixels[base] = 255;
+        pixels[base + 1] = 255;
+        pixels[base + 2] = 0;
+        pixels[base + 3] = 255;
+      } else if (value === 2) {
+        // Water (Blue)
+        pixels[base] = 0;
+        pixels[base + 1] = 0;
+        pixels[base + 2] = 255;
+        pixels[base + 3] = 255;
+      } else {
+        // Empty (Black)
+        pixels[base] = 0;
+        pixels[base + 1] = 0;
+        pixels[base + 2] = 0;
+        pixels[base + 3] = 255;
+      }
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gridWidth,
+      gridHeight,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      pixels
+    );
+
+    // Draw the grid
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  };
+
+  const renderBrush = (gl, program, mousePosRef, brushSizeRef, gridWidth, gridHeight, selectedElementRef) => {
+    const spawnRadius = Math.ceil(brushSizeRef.current);
+    const overlayRadius = spawnRadius + 1; // Make the overlay radius larger by one unit
+    const mousePos = mousePosRef.current;
+
+    if (mousePos.x < 0 || mousePos.y < 0) return; // Do not render if mouse position is invalid
+
+    // Align the brush to the center of the grid cell
+    const alignedX = Math.floor(mousePos.x) + 0.5;
+    const alignedY = Math.floor(mousePos.y) + 0.5;
+
+    // Convert aligned mouse position to normalized device coordinates (NDC)
+    const mouseNDCX = (alignedX / gridWidth) * 2 - 1;
+    const mouseNDCY = ((gridHeight - alignedY) / gridHeight) * 2 - 1;
+
+    const pixels = [];
+    for (let dx = -overlayRadius; dx <= overlayRadius; dx++) {
+      for (let dy = -overlayRadius; dy <= overlayRadius; dy++) {
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance <= overlayRadius && distance > overlayRadius - 1) {
+          // Fill only the border of the larger overlay circle
+          const x1 = mouseNDCX + ((dx - 0.5) / gridWidth) * 2;
+          const x2 = mouseNDCX + ((dx + 0.5) / gridWidth) * 2;
+          const y1 = mouseNDCY - ((dy - 0.5) / gridHeight) * 2;
+          const y2 = mouseNDCY - ((dy + 0.5) / gridHeight) * 2;
+
+          // Add vertices for a filled rectangle representing the cell
+          pixels.push(x1, y1, x2, y1, x1, y2, x1, y2, x2, y1, x2, y2);
         }
-      `;
-    
-      const fragmentShaderSource = `
-        precision mediump float;
-        uniform vec4 u_color; // Brush color
-        void main() {
-          gl_FragColor = u_color;
-        }
-      `;
-    
-      return createProgram(gl, vertexShaderSource, fragmentShaderSource);
-    };
-    
-    
-      // Set up the full-screen quad
-      buffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([
-          -1,
-          -1,
-          1,
-          -1,
-          -1,
-          1, // First triangle
-          -1,
-          1,
-          1,
-          -1,
-          1,
-          1, // Second triangle
-        ]),
-        gl.STATIC_DRAW
-      );
+      }
+    }
 
-      // Set up texture
-      texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // Determine brush color based on selected element
+    const color = selectedElementRef.current === "Empty" ? [1.0, 0.0, 0.0, 0.5] : [0.0, 0.0, 1.0, 0.5];
 
-      // Adjust the viewport
-      const resizeCanvas = () => {
-        const windowAspect = window.innerWidth / window.innerHeight;
+    // Upload pixel vertices to a buffer
+    const pixelBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, pixelBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pixels), gl.STATIC_DRAW);
 
-        if (windowAspect > aspectRatio) {
-          // Fit to height
-          canvas.height = window.innerHeight;
-          canvas.width = canvas.height * aspectRatio;
-        } else {
-          // Fit to width
-          canvas.width = window.innerWidth;
-          canvas.height = canvas.width / aspectRatio;
-        }
+    // Use the brush program
+    gl.useProgram(program);
 
-        canvas.style.position = "absolute";
-        canvas.style.left = `${(window.innerWidth - canvas.width) / 2}px`;
-        canvas.style.top = `${(window.innerHeight - canvas.height) / 2}px`;
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    const colorLocation = gl.getUniformLocation(program, "u_color");
 
-        // Update WebGL viewport to match the canvas size
-        gl.viewport(0, 0, canvas.width, canvas.height);
-      };
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-      window.addEventListener("resize", resizeCanvas);
-      resizeCanvas();
+    // Set brush color
+    gl.uniform4f(colorLocation, ...color);
 
-      // Helper function to get mouse position
-      const getMousePosition = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = gridWidth / rect.width;
-        const scaleY = gridHeight / rect.height;
+    // Draw the border cells as triangles
+    gl.drawArrays(gl.TRIANGLES, 0, pixels.length / 2);
 
-        const x = Math.floor((e.clientX - rect.left) * scaleX);
-        const y = Math.floor((e.clientY - rect.top) * scaleY);
-        return { x, y };
-      };
+    gl.deleteBuffer(pixelBuffer); // Clean up buffer
+  };
 
-      const spawnInRadius = (centerX, centerY) => {
-        const radius = brushSizeRef.current;
+  const renderChunks = (gl, program, chunkSize, gridWidth, gridHeight) => {
 
-        // Map selectedElement to corresponding cell type
-        const cellTypeMap = {
-          Sand: 1,
-          Water: 2,
-          Empty: 0,
-        };
-        const cellType = cellTypeMap[selectedElementRef.current]; // Use ref instead of state
-
-        for (let dx = -radius; dx <= radius; dx++) {
-          for (let dy = -radius; dy <= radius; dy++) {
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= radius) {
-              const x = centerX + dx;
-              const y = centerY + dy;
-
-              if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
-                game.set_cell(x, y, cellType); // Pass numeric type to set_cell
-              }
-            }
-          }
-        }
-      };
-
-      // Start spawning sand
-      const startDrawing = () => {
-        if (!isDrawing) {
-          isDrawing = true;
-          drawInterval = setInterval(() => {
-            spawnInRadius(mousePosRef.current.x, mousePosRef.current.y);
-          }, 50);
-        }
-      };
-
-      // Stop spawning sand
-      const stopDrawing = () => {
-        isDrawing = false;
-        clearInterval(drawInterval);
-      };
-
-      // Event listeners
-      const handleMouseMove = (e) => {
-        const pos = getMousePosition(e);
-        mousePosRef.current = pos;
-      };
-
-      const handleMouseDown = (e) => {
-        // Only allow spawning on left-click
-        if (e.button !== 0) return;
-
-        const pos = getMousePosition(e);
-        mousePosRef.current = pos; // Update mouse position reference
-        startDrawing(); // Start spawning
-      };
-
-
-      const handleMouseUp = stopDrawing;
-
-      const handleScroll = (e) => {
-        setBrushSize((size) =>
-          Math.max(
-            MIN_BRUSH_SIZE,
-            Math.min(MAX_BRUSH_SIZE, size + (e.deltaY < 0 ? 1 : -1))
-          )
-        );
-      };
-
-      canvas.addEventListener("contextmenu", handleContextMenu);
-      canvas.addEventListener("mousedown", handleMouseDown);
-      canvas.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      window.addEventListener("wheel", handleScroll, { passive: false });
-
-      const renderBrush = () => {
-        const mousePositionLocation = gl.getUniformLocation(program, "u_mousePosition");
-        const mouseNDCX = (mousePosRef.current.x / gridWidth) * 2.0 - 1.0;
-        const mouseNDCY =
-          ((gridHeight - mousePosRef.current.y) / gridHeight) * 2.0 - 1.0;
-        gl.uniform2f(mousePositionLocation, mouseNDCX, mouseNDCY);
-      
-        const brushSizeLocation = gl.getUniformLocation(program, "u_brushSize");
-        gl.uniform1f(brushSizeLocation, brushSizeRef.current);
-      
-        const selectedElementLocation = gl.getUniformLocation(program, "u_selectedElement");
-        const elementMap = {
-          Empty: 0,
-          Sand: 1,
-          Water: 2,
-        };
-        gl.uniform1i(selectedElementLocation, elementMap[selectedElementRef.current]);
-      
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-      };
-
-      const renderChunkOverlay = (gl) => {
-    if (!showChunksRef.current) return;
+    if (!showChunksRef.current) {
+      return;
+    }
+    gl.useProgram(program);
 
     const chunkVertices = [];
-
-    // Generate line vertices for chunk borders
     for (let x = 0; x <= gridWidth; x += chunkSize) {
-        const ndcX = (x / gridWidth) * 2 - 1;
-        chunkVertices.push(
-            ndcX, -1,  // Bottom
-            ndcX, 1    // Top
-        );
+      const ndcX = (x / gridWidth) * 2 - 1;
+      chunkVertices.push(ndcX, -1, ndcX, 1);
     }
-
     for (let y = 0; y <= gridHeight; y += chunkSize) {
-        const ndcY = (y / gridHeight) * 2 - 1;
-        chunkVertices.push(
-            -1, ndcY,  // Left
-            1, ndcY    // Right
-        );
+      const ndcY = (y / gridHeight) * 2 - 1;
+      chunkVertices.push(-1, ndcY, 1, ndcY);
     }
 
-    // Create and bind buffer for lines
     const chunkBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, chunkBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(chunkVertices), gl.STATIC_DRAW);
 
-    // Use the chunk overlay program
-    gl.useProgram(chunkOverlayProgram);
-
-    // Set the line color to blue
-    const colorLocation = gl.getUniformLocation(chunkOverlayProgram, "u_color");
-    gl.uniform4f(colorLocation, 0.0, 0.0, 1.0, 1.0);
-
-    // Set up the attribute pointer
-    const positionLocation = gl.getAttribLocation(chunkOverlayProgram, "a_position");
+    const positionLocation = gl.getAttribLocation(program, "a_position");
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-    // Draw the lines
+    const colorLocation = gl.getUniformLocation(program, "u_color");
+    gl.uniform4f(colorLocation, 0.0, 0.0, 1.0, 1.0);
+
     gl.drawArrays(gl.LINES, 0, chunkVertices.length / 2);
 
-    // Clean up
-    gl.disableVertexAttribArray(positionLocation);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.deleteBuffer(chunkBuffer);
-};
+  };
 
-    
-      
-      
-      
-      
-      
-      
+  const startRenderingLoop = (gl, { gridProgram, chunkOverlayProgram, brushProgram, gridBuffer, gridTexture, game }) => {
+    const targetFrameDuration = 1000 / 60; // Target duration for 60 FPS (16.67 ms)
+    let lastFrameTime = performance.now();
 
-const renderGrid = () => {
-  const grid = game.get_grid();
-  const pixels = new Uint8Array(gridWidth * gridHeight * 4);
+    const renderFrame = () => {
+      const now = performance.now();
+      const elapsed = now - lastFrameTime;
 
-  // Prepare the grid texture
-  for (let i = 0; i < grid.length; i++) {
-    const cell = grid[i];
-    const base = i * 4;
-    if (cell === 1) {
-      pixels[base] = 255; // Sand: Yellow
-      pixels[base + 1] = 255;
-      pixels[base + 2] = 0;
-      pixels[base + 3] = 255;
-    } else if (cell === 2) {
-      pixels[base] = 0; // Water: Blue
-      pixels[base + 1] = 0;
-      pixels[base + 2] = 255;
-      pixels[base + 3] = 255;
-    } else {
-      pixels[base] = 0; // Empty: Black
-      pixels[base + 1] = 0;
-      pixels[base + 2] = 0;
-      pixels[base + 3] = 255;
+      if (elapsed >= targetFrameDuration) {
+        lastFrameTime = now;
+
+        // Step the game logic (simulation step)
+        if (simulationStateRef.current === "running") {
+          game.step();
+        } else if (simulationStateRef.current === "step") {
+          game.step();
+          simulationStateRef.current = "paused";
+        }
+
+        // Render the grid, chunks, and brush
+        renderGrid(gl, gridProgram, gridBuffer, gridTexture, gridWidth, gridHeight, game);
+        renderChunks(gl, chunkOverlayProgram, chunkSize, gridWidth, gridHeight);
+        renderBrush(gl, brushProgram, mousePosRef, brushSizeRef, gridWidth, gridHeight, selectedElementRef);
+
+
+        // Update FPS (optional, for debugging)
+        frameTimes.current.push(elapsed);
+        if (frameTimes.current.length > smoothingWindow) {
+          frameTimes.current.shift(); // Remove oldest frame
+        }
+        const avgFrameTime = frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
+        setFrameTime(avgFrameTime);
+      }
+
+      requestAnimationFrame(renderFrame); // Continue the animation loop
+    };
+
+    renderFrame();
+  };
+
+  const createProgram = (gl, vertexSource, fragmentSource) => {
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(program));
+      return null;
     }
-  }
+    return program;
+  };
 
-  // Upload the grid texture
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    gridWidth,
-    gridHeight,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    pixels
-  );
+  const createShader = (gl, type, source) => {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
 
-  // Render the grid
-  gl.useProgram(program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-
-  const positionLocation = gl.getAttribLocation(program, "a_position");
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-  const textureLocation = gl.getUniformLocation(program, "u_texture");
-  gl.uniform1i(textureLocation, 0);
-
-  const gridSizeLocation = gl.getUniformLocation(program, "u_gridSize");
-  gl.uniform2f(gridSizeLocation, gridWidth, gridHeight);
-
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-  renderChunkOverlay(gl);
-
-  // Switch back to the main program before rendering the brush
-  gl.useProgram(program); // Switch back to the main program
-  renderBrush();
-
-  
-
-};
-
-
-const stepSimulation = () => {
-  const targetFrameDuration = 1000 / 60; // 60 FPS = 16.67 ms per frame
-  const now = performance.now();
-  const elapsed = now - lastFrameTime;
-
-  if (elapsed >= targetFrameDuration) {
-    // Update the last frame time to the current time
-    lastFrameTime = now;
-
-    // Update the frame times array
-    frameTimes.current.push(elapsed);
-    if (frameTimes.current.length > smoothingWindow) {
-      frameTimes.current.shift(); // Remove the oldest frame time
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
     }
+    return shader;
+  };
 
-    // Calculate and set the smoothed frame time
-    const averageFrameTime =
-      frameTimes.current.reduce((sum, time) => sum + time, 0) /
-      frameTimes.current.length;
-    setFrameTime(averageFrameTime);
+  const setupMouseEvents = (canvas, game, gridWidth, gridHeight, brushSizeRef, mousePosRef, selectedElementRef, setBrushSize) => {
+    let isDrawing = false; // Flag to track if the mouse is down
+    let spawnInterval; // Store the interval ID for clearing later
 
-    // Perform the rendering and simulation steps
-    if (simulationStateRef.current === "running") {
-      game.step();
-    } else if (simulationStateRef.current === "step") {
-      game.step();
-      simulationStateRef.current = "paused";
-    }
+    const getMousePosition = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = gridWidth / rect.width;
+      const scaleY = gridHeight / rect.height;
 
-    renderGrid();
-  }
+      const x = Math.floor((e.clientX - rect.left) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      return { x, y };
+    };
 
-  // Continue the animation loop
-  requestAnimationFrame(stepSimulation);
-};
+    const spawnInRadius = (centerX, centerY) => {
+      const radius = brushSizeRef.current;
 
-
-
-
-      stepSimulation();
-
-      return () => {
-        window.removeEventListener("resize", resizeCanvas);
-        canvas.removeEventListener("mousedown", handleMouseDown);
-        canvas.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        window.removeEventListener("wheel", handleScroll);
-        clearInterval(drawInterval);
+      // Map the selected element to a numeric value
+      const elementMap = {
+        Empty: 0,
+        Sand: 1,
+        Water: 2,
       };
-    };
+      const cellType = elementMap[selectedElementRef.current];
 
-    const createShader = (gl, type, source) => {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(shader));
-        gl.deleteShader(shader);
-        return null;
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance <= radius) {
+            const x = centerX + dx;
+            const y = centerY + dy;
+
+            if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
+              game.set_cell(x, y, cellType);
+            }
+          }
+        }
       }
-      return shader;
     };
 
-    const createProgram = (gl, vertexSource, fragmentSource) => {
-      const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-      const fragmentShader = createShader(
-        gl,
-        gl.FRAGMENT_SHADER,
-        fragmentSource
-      );
-      const program = gl.createProgram();
-      gl.attachShader(program, vertexShader);
-      gl.attachShader(program, fragmentShader);
-      gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(gl.getProgramInfoLog(program));
-        return null;
-      }
-      return program;
+    const startDrawing = () => {
+      if (isDrawing) return; // Prevent multiple intervals
+      isDrawing = true;
+
+      spawnInterval = setInterval(() => {
+        const pos = mousePosRef.current;
+        if (pos.x >= 0 && pos.y >= 0) {
+          spawnInRadius(pos.x, pos.y);
+        }
+      }, 50); // Spawn every 50ms (adjust as needed)
     };
 
+    const stopDrawing = () => {
+      isDrawing = false;
+      clearInterval(spawnInterval);
+    };
+
+    const handleMouseMove = (e) => {
+      const pos = getMousePosition(e);
+      mousePosRef.current = pos; // Update the mouse position reference
+    };
+
+    const handleMouseDown = (e) => {
+      if (e.button !== 0) return; // Only handle left mouse button clicks
+
+      const pos = getMousePosition(e);
+      mousePosRef.current = pos; // Update position before starting
+      startDrawing();
+    };
+
+    const handleMouseUp = () => {
+      stopDrawing();
+    };
+
+    const handleScroll = (e) => {
+      e.preventDefault(); // Prevent default scrolling behavior
+      setBrushSize((prevBrushSize) => {
+        const newBrushSize = Math.max(
+          MIN_BRUSH_SIZE,
+          Math.min(MAX_BRUSH_SIZE, prevBrushSize + (e.deltaY < 0 ? 2 : -2))
+        );
+        brushSizeRef.current = newBrushSize; // Update the ref for immediate use
+        return newBrushSize;
+      });
+    };
+
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp); // Add listener on `window` to handle mouse up outside canvas
+    canvas.addEventListener("wheel", handleScroll, { passive: false }); // Handle scroll for brush size
+
+    return () => {
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("wheel", handleScroll);
+      clearInterval(spawnInterval); // Clean up interval on unmount
+    };
+  };
+
+  const initialize = async () => {
+    await init();
+    const canvas = canvasRef.current;
+    const gl = canvas.getContext("webgl");
+
+    setupCanvas(gl, canvas, gridWidth, gridHeight);
+
+    const game = new SandGame(gridWidth, gridHeight);
+
+    // Initialize WebGL resources
+    const gridProgram = createGridProgram(gl);
+    const chunkOverlayProgram = createChunkOverlayProgram(gl);
+    const brushProgram = createBrushProgram(gl);
+    const gridBuffer = createFullScreenQuadBuffer(gl);
+    const gridTexture = createTexture(gl, gridWidth, gridHeight);
+
+    const cleanupMouseEvents = setupMouseEvents(
+      canvas,
+      game,
+      gridWidth,
+      gridHeight,
+      brushSizeRef,
+      mousePosRef,
+      selectedElementRef,
+      setBrushSize // Pass the setter
+    );
+
+    // Start rendering loop
+    startRenderingLoop(gl, {
+      game,
+      gridProgram,
+      chunkOverlayProgram,
+      brushProgram,
+      gridBuffer,
+      gridTexture,
+    });
+  };
+
+  useEffect(() => {
     initialize();
-  }, []);
+  }, []); // <- This should be properly closed
 
   return (
     <div onContextMenu={handleContextMenu} onClick={closeContextMenu} >
