@@ -3,21 +3,62 @@ import init, { SandGame } from "../../backend/pkg";
 
 const App = () => {
   const canvasRef = useRef(null);
-  const gridWidth = 500;
-  const gridHeight = 375; // Maintain 4:3 aspect ratio
+  const gridWidth = 200;
+  const gridHeight = 200;
   const aspectRatio = gridWidth / gridHeight;
-  const [brushSize, setBrushSize] = useState(1); // State to track brush size
+  const [brushSize, setBrushSize] = useState(1);
   const MIN_BRUSH_SIZE = 1;
   const MAX_BRUSH_SIZE = 20;
   const [frameTime, setFrameTime] = useState(0);
-  const mousePosRef = useRef({ x: 0, y: 0 });
+  const mousePosRef = useRef({ x: -1, y: -1 });
 
+  const [selectedElement, setSelectedElement] = useState("Sand");
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
+  const [submenuVisible, setSubmenuVisible] = useState(null);
+  const selectedElementRef = useRef("Sand");
+
+  useEffect(() => {
+    selectedElementRef.current = selectedElement;
+  }, [selectedElement]);
 
   const brushSizeRef = useRef(brushSize);
-useEffect(() => {
-  brushSizeRef.current = brushSize;
-}, [brushSize]);
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY });
+  };
+
+  const closeContextMenu = () => setContextMenu({ visible: false, x: 0, y: 0 });
+
+  const selectElement = (element) => {
+    setSelectedElement(element);
+    closeContextMenu();
+  };
+
+  const toggleSimulationState = () => {
+    console.log("Toggled simulation state");
+    closeContextMenu();
+  };
+
+  const stepSimulation = () => {
+    console.log("Step simulation");
+    closeContextMenu();
+  };
+
+  const toggleShowChunks = () => {
+    console.log("Toggled chunks visibility");
+    closeContextMenu();
+  };
+
+  const toggleSubmenu = (menu) => setSubmenuVisible(menu);
+
+  useEffect(() => {
+    brushSizeRef.current = brushSize;
+  }, [brushSize]);
 
   useEffect(() => {
     let game;
@@ -47,13 +88,43 @@ useEffect(() => {
         }
       `;
       const fragmentShaderSource = `
-        precision mediump float;
-        varying vec2 v_texCoord;
-        uniform sampler2D u_texture;
-        void main() {
-          gl_FragColor = texture2D(u_texture, v_texCoord);
-        }
-      `;
+      precision mediump float;
+      varying vec2 v_texCoord;
+      uniform sampler2D u_texture;
+      uniform vec2 u_mousePosition; // In NDC
+      uniform float u_brushSize; // In grid cells
+      uniform vec2 u_canvasSize;
+      uniform vec2 u_gridSize; // Grid size (in cells)
+      
+      // Helper function to calculate if a cell is on the circle's border
+      bool isOnPixelCircle(vec2 gridCoord, vec2 center, float radius) {
+          float distanceSquared = (gridCoord.x - center.x) * (gridCoord.x - center.x) +
+                                  (gridCoord.y - center.y) * (gridCoord.y - center.y);
+          return distanceSquared >= (radius - 0.5) * (radius - 0.5) &&
+                 distanceSquared <= (radius + 0.5) * (radius + 0.5);
+      }
+      
+      void main() {
+          vec4 color = texture2D(u_texture, v_texCoord);
+      
+          // Convert fragment coordinate to grid space
+          vec2 gridCoord = floor(v_texCoord * u_gridSize);
+      
+          // Convert mouse position from NDC to grid space
+          vec2 brushCenter = (u_mousePosition * 0.5 + 0.5) * u_gridSize;
+      
+          // Check if this fragment is part of the pixelated circle
+          if (isOnPixelCircle(gridCoord, brushCenter, u_brushSize)) {
+              gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White border for the brush
+          } else {
+              gl_FragColor = color; // Original grid color
+          }
+      }
+      
+      
+
+    `;
+
       program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
 
       // Set up the full-screen quad
@@ -62,8 +133,18 @@ useEffect(() => {
       gl.bufferData(
         gl.ARRAY_BUFFER,
         new Float32Array([
-          -1, -1, 1, -1, -1, 1, // First triangle
-          -1, 1, 1, -1, 1, 1, // Second triangle
+          -1,
+          -1,
+          1,
+          -1,
+          -1,
+          1, // First triangle
+          -1,
+          1,
+          1,
+          -1,
+          1,
+          1, // Second triangle
         ]),
         gl.STATIC_DRAW
       );
@@ -113,15 +194,25 @@ useEffect(() => {
       };
 
       const spawnInRadius = (centerX, centerY) => {
-        const radius = brushSizeRef.current
+        const radius = brushSizeRef.current;
+
+        // Map selectedElement to corresponding cell type
+        const cellTypeMap = {
+          Sand: 1,
+          Water: 2,
+          Empty: 0,
+        };
+        const cellType = cellTypeMap[selectedElementRef.current]; // Use ref instead of state
+
         for (let dx = -radius; dx <= radius; dx++) {
           for (let dy = -radius; dy <= radius; dy++) {
             const distance = Math.sqrt(dx * dx + dy * dy);
             if (distance <= radius) {
               const x = centerX + dx;
               const y = centerY + dy;
+
               if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
-                game.set_cell(x, y, 1); // Add sand (cell type 1)
+                game.set_cell(x, y, cellType); // Pass numeric type to set_cell
               }
             }
           }
@@ -137,7 +228,6 @@ useEffect(() => {
           }, 50);
         }
       };
-      
 
       // Stop spawning sand
       const stopDrawing = () => {
@@ -148,8 +238,7 @@ useEffect(() => {
       // Event listeners
       const handleMouseMove = (e) => {
         const pos = getMousePosition(e);
-
-        mousePosRef.current = pos; // Update ref
+        mousePosRef.current = pos;
       };
 
       const handleMouseDown = (e) => {
@@ -158,22 +247,23 @@ useEffect(() => {
         mousePosRef.current = pos; // Update ref
         startDrawing();
       };
-      
 
       const handleMouseUp = stopDrawing;
 
       const handleScroll = (e) => {
         setBrushSize((size) =>
-          Math.max(MIN_BRUSH_SIZE, Math.min(MAX_BRUSH_SIZE, size + (e.deltaY < 0 ? 1 : -1)))
+          Math.max(
+            MIN_BRUSH_SIZE,
+            Math.min(MAX_BRUSH_SIZE, size + (e.deltaY < 0 ? 1 : -1))
+          )
         );
       };
-      
 
+      canvas.addEventListener("contextmenu", handleContextMenu);
       canvas.addEventListener("mousedown", handleMouseDown);
       canvas.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
       window.addEventListener("wheel", handleScroll, { passive: false });
-
 
       const renderGrid = () => {
         const grid = game.get_grid();
@@ -183,27 +273,24 @@ useEffect(() => {
           const cell = grid[i];
           const base = i * 4;
           if (cell === 1) {
-            // Sand: Yellow
-            pixels[base] = 255;
+            pixels[base] = 255; // Sand: Yellow
             pixels[base + 1] = 255;
             pixels[base + 2] = 0;
             pixels[base + 3] = 255;
           } else if (cell === 2) {
-            // Water: Blue
-            pixels[base] = 0;
+            pixels[base] = 0; // Water: Blue
             pixels[base + 1] = 0;
             pixels[base + 2] = 255;
             pixels[base + 3] = 255;
           } else {
-            // Empty: Black
-            pixels[base] = 0;
+            pixels[base] = 0; // Empty: Black
             pixels[base + 1] = 0;
             pixels[base + 2] = 0;
             pixels[base + 3] = 255;
           }
         }
 
-        // Update texture with the new grid state
+        // Update texture
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(
           gl.TEXTURE_2D,
@@ -217,7 +304,7 @@ useEffect(() => {
           pixels
         );
 
-        // Render the full-screen quad
+        // Render the texture
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 
@@ -228,26 +315,46 @@ useEffect(() => {
         const textureLocation = gl.getUniformLocation(program, "u_texture");
         gl.uniform1i(textureLocation, 0);
 
+        const mousePositionLocation = gl.getUniformLocation(
+          program,
+          "u_mousePosition"
+        );
+        const mouseNDCX = (mousePosRef.current.x / gridWidth) * 2.0 - 1.0;
+        const mouseNDCY =
+          ((gridHeight - mousePosRef.current.y) / gridHeight) * 2.0 - 1.0;
+        gl.uniform2f(mousePositionLocation, mouseNDCX, mouseNDCY);
+
+        const brushSizeLocation = gl.getUniformLocation(program, "u_brushSize");
+        gl.uniform1f(brushSizeLocation, brushSizeRef.current);
+
+        const gridSizeLocation = gl.getUniformLocation(program, "u_gridSize");
+        gl.uniform2f(gridSizeLocation, gridWidth, gridHeight);
+
+        const canvasSizeLocation = gl.getUniformLocation(
+          program,
+          "u_canvasSize"
+        );
+        gl.uniform2f(canvasSizeLocation, canvas.width, canvas.height);
+
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       };
 
       const stepSimulation = () => {
         const now = performance.now();
         const elapsed = now - lastFrameTime;
-      
+
         const targetFrameTime = 1000 / 60; // 60 FPS => ~16.67ms per frame
-      
+
         if (elapsed >= targetFrameTime) {
           setFrameTime(elapsed.toFixed(2)); // Update frame time state
           lastFrameTime = now;
-      
+
           game.step();
           renderGrid();
         }
-      
+
         requestAnimationFrame(stepSimulation);
       };
-      
 
       stepSimulation();
 
@@ -275,7 +382,11 @@ useEffect(() => {
 
     const createProgram = (gl, vertexSource, fragmentSource) => {
       const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-      const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+      const fragmentShader = createShader(
+        gl,
+        gl.FRAGMENT_SHADER,
+        fragmentSource
+      );
       const program = gl.createProgram();
       gl.attachShader(program, vertexShader);
       gl.attachShader(program, fragmentShader);
@@ -291,27 +402,83 @@ useEffect(() => {
   }, []);
 
   return (
-    <div>
+    <div
+      onContextMenu={handleContextMenu}
+    >
       <canvas
         ref={canvasRef}
         style={{
           display: "block",
-          margin: 0,
-          padding: 0,
-          backgroundColor: "black",
+
         }}
       />
       <div
         style={{
           position: "absolute",
-          top: "10px",
-          left: "10px",
+          top: `${(canvasRef.current?.offsetTop || 0) + 20}px`,
+          left: `${(canvasRef.current?.offsetLeft || 0) + 20}px`,
           color: "white",
           fontFamily: "monospace",
+          pointerEvents: "none",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
         }}
       >
-        Frame Time: {Math.round(1000/frameTime)} ms | Mouse Position: {`x: ${mousePosRef.current.x}, y: ${mousePosRef.current.y}`}
+        <div>Selected Element: {selectedElement}</div>
+        <div>Frame Time: {Math.round(1000 / frameTime)} ms</div>
+        <div>Mouse Position: {`x: ${mousePosRef.current?.x}, y: ${gridHeight - 1 - (mousePosRef.current?.y ?? 0)
+          }`}</div>
       </div>
+
+
+      {contextMenu.visible && (
+        <ul
+          className="context-menu"
+          style={{
+            position: "absolute",
+            top: `${contextMenu.y}px`,
+            left: `${contextMenu.x}px`,
+          }}
+        >
+          <li
+            className="context-menu-item has-submenu"
+            onMouseEnter={() => toggleSubmenu("CREATE")}
+            onMouseLeave={() => toggleSubmenu(null)}
+          >
+            Create
+            {submenuVisible === "CREATE" && (
+              <ul className="context-submenu">
+                {["Sand", "Water", "Empty"].map((key) => (
+                  <li
+                    key={key}
+                    className="context-menu-item"
+                    onClick={() => selectElement(key)}
+                  >
+                    {key}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          <li
+            className="context-menu-item"
+            onClick={() => selectElement("Empty")}
+          >
+            Delete
+          </li>
+          <hr className="context-menu-divider" />
+          <li className="context-menu-item" onClick={toggleSimulationState}>
+            Toggle Simulation
+          </li>
+          <li className="context-menu-item" onClick={stepSimulation}>
+            Step Simulation
+          </li>
+          <li className="context-menu-item" onClick={toggleShowChunks}>
+            Toggle Chunks
+          </li>
+        </ul>
+      )}
     </div>
   );
 };
