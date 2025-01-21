@@ -151,7 +151,6 @@ const App = () => {
     return createProgram(gl, vertexSource, fragmentSource);
   };
 
-
   const createFullScreenQuadBuffer = (gl) => {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -295,38 +294,81 @@ const App = () => {
     gl.deleteBuffer(pixelBuffer); // Clean up buffer
   };
 
-  const renderChunks = (gl, program, chunkSize, gridWidth, gridHeight) => {
-
+  const renderChunks = (gl, program, chunkSize, gridWidth, gridHeight, game) => {
     if (!showChunksRef.current) {
       return;
     }
+  
     gl.useProgram(program);
-
-    const chunkVertices = [];
-    for (let x = 0; x <= gridWidth; x += chunkSize) {
-      const ndcX = (x / gridWidth) * 2 - 1;
-      chunkVertices.push(ndcX, -1, ndcX, 1);
+  
+    const chunkCountX = Math.ceil(gridWidth / chunkSize);
+    const chunkCountY = Math.ceil(gridHeight / chunkSize);
+  
+    for (let chunkY = 0; chunkY < chunkCountY; chunkY++) {
+      for (let chunkX = 0; chunkX < chunkCountX; chunkX++) {
+        // Check if the chunk is active using the Rust game object
+        const isActive = game.is_chunk_active(chunkX, chunkY);
+  
+        // Determine chunk color: green for active, red for inactive (transparent background)
+        const fillColor = isActive ? [0.0, 1.0, 0.0, 0.3] : [1.0, 0.0, 0.0, 0.3];
+        const outlineColor = [0.0, 0.0, 0.0, 1.0]; // Black for the outline
+  
+        const startX = (chunkX * chunkSize) / gridWidth * 2 - 1;
+        const endX = ((chunkX + 1) * chunkSize) / gridWidth * 2 - 1;
+  
+        // Flip the Y-axis
+        const startY = ((chunkY + 1) * chunkSize) / gridHeight * 2 - 1;
+        const endY = (chunkY * chunkSize) / gridHeight * 2 - 1;
+  
+        // Vertices for a filled rectangle (two triangles)
+        const fillVertices = [
+          startX, startY, endX, startY, startX, endY, // First triangle
+          startX, endY, endX, startY, endX, endY,     // Second triangle
+        ];
+  
+        // Vertices for the outline (lines forming a rectangle)
+        const outlineVertices = [
+          startX, startY, endX, startY, // Top edge
+          endX, startY, endX, endY,     // Right edge
+          endX, endY, startX, endY,     // Bottom edge
+          startX, endY, startX, startY, // Left edge
+        ];
+  
+        // Draw the filled rectangle
+        const fillBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, fillBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fillVertices), gl.STATIC_DRAW);
+  
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        const colorLocation = gl.getUniformLocation(program, "u_color");
+  
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+  
+        gl.uniform4f(colorLocation, ...fillColor);
+        gl.drawArrays(gl.TRIANGLES, 0, fillVertices.length / 2);
+  
+        gl.deleteBuffer(fillBuffer); // Clean up fill buffer
+  
+        // Draw the outline
+        const outlineBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, outlineBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(outlineVertices), gl.STATIC_DRAW);
+  
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+  
+        gl.uniform4f(colorLocation, ...outlineColor);
+        gl.drawArrays(gl.LINES, 0, outlineVertices.length / 2);
+  
+        gl.deleteBuffer(outlineBuffer); // Clean up outline buffer
+      }
     }
-    for (let y = 0; y <= gridHeight; y += chunkSize) {
-      const ndcY = (y / gridHeight) * 2 - 1;
-      chunkVertices.push(-1, ndcY, 1, ndcY);
-    }
-
-    const chunkBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, chunkBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(chunkVertices), gl.STATIC_DRAW);
-
-    const positionLocation = gl.getAttribLocation(program, "a_position");
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-    const colorLocation = gl.getUniformLocation(program, "u_color");
-    gl.uniform4f(colorLocation, 0.0, 0.0, 1.0, 1.0);
-
-    gl.drawArrays(gl.LINES, 0, chunkVertices.length / 2);
-
-    gl.deleteBuffer(chunkBuffer);
   };
+  
+  
+  
+  
 
   const startRenderingLoop = (gl, { gridProgram, chunkOverlayProgram, brushProgram, gridBuffer, gridTexture, game }) => {
     const targetFrameDuration = 1000 / 60; // Target duration for 60 FPS (16.67 ms)
@@ -349,7 +391,8 @@ const App = () => {
 
         // Render the grid, chunks, and brush
         renderGrid(gl, gridProgram, gridBuffer, gridTexture, gridWidth, gridHeight, game);
-        renderChunks(gl, chunkOverlayProgram, chunkSize, gridWidth, gridHeight);
+        renderChunks(gl, chunkOverlayProgram, chunkSize, gridWidth, gridHeight, game);
+
         renderBrush(gl, brushProgram, mousePosRef, brushSizeRef, gridWidth, gridHeight, selectedElementRef);
 
 
@@ -503,7 +546,7 @@ const App = () => {
 
     setupCanvas(gl, canvas, gridWidth, gridHeight);
 
-    const game = new SandGame(gridWidth, gridHeight);
+    const game = new SandGame(gridWidth, gridHeight, chunkSize);
 
     // Initialize WebGL resources
     const gridProgram = createGridProgram(gl);
@@ -520,7 +563,7 @@ const App = () => {
       brushSizeRef,
       mousePosRef,
       selectedElementRef,
-      setBrushSize // Pass the setter
+      setBrushSize
     );
 
     // Start rendering loop
