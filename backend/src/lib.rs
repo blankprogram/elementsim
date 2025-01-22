@@ -1,6 +1,5 @@
-use wasm_bindgen::prelude::*;
 use rand::Rng;
-use web_sys::console;
+use wasm_bindgen::prelude::*;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Cell {
@@ -60,36 +59,27 @@ impl SandGame {
 
     pub fn step(&mut self) {
         let mut rng = rand::thread_rng();
-        let chunk_count_x = (self.width + self.chunk_size - 1) / self.chunk_size;
-        let chunk_count_y = (self.height + self.chunk_size - 1) / self.chunk_size;
-    
-        let mut next_active_chunks = vec![false; chunk_count_x * chunk_count_y];
-    
-        // Process grid bottom-to-top
+        let mut next_active_chunks = vec![false; self.active_chunks.len()];
+
         for y in 0..self.height {
-            // Randomly decide left-to-right or right-to-left for this row
             let x_range: Box<dyn Iterator<Item = usize>> = if rng.gen_bool(0.5) {
                 Box::new(0..self.width)
             } else {
                 Box::new((0..self.width).rev())
             };
-    
+
             for x in x_range {
                 let chunk_x = x / self.chunk_size;
                 let chunk_y = y / self.chunk_size;
-    
-                // Only process cells in active chunks
+
                 if self.is_chunk_active(chunk_x, chunk_y) && self.update_cell(x, y) {
-                    self.mark_neighbors_active(chunk_x, chunk_y, &mut next_active_chunks);
+                    self.mark_neighbors_active(x, y, &mut next_active_chunks);
                 }
             }
         }
-    
-        // Update active chunks for the next step
+
         self.active_chunks = next_active_chunks;
     }
-    
-    
 
     fn update_cell(&mut self, x: usize, y: usize) -> bool {
         if y == 0 {
@@ -158,24 +148,22 @@ impl SandGame {
         let chunk_index = self.chunk_index(chunk_x, chunk_y);
 
         if let Some(active) = self.active_chunks.get_mut(chunk_index) {
-            if !*active {
-                *active = true;
-            }
+            *active = true;
         }
     }
 
-    fn mark_neighbors_active(&self, chunk_x: usize, chunk_y: usize, next_active_chunks: &mut Vec<bool>) {
+    fn mark_neighbors_active(&self, x: usize, y: usize, next_active_chunks: &mut Vec<bool>) {
+        let chunk_x = x / self.chunk_size;
+        let chunk_y = y / self.chunk_size;
         let chunk_count_x = (self.width + self.chunk_size - 1) / self.chunk_size;
-        let chunk_count_y = (self.height + self.chunk_size - 1) / self.chunk_size;
 
         for dy in -1..=1 {
             for dx in -1..=1 {
                 let nx = (chunk_x as isize + dx) as usize;
                 let ny = (chunk_y as isize + dy) as usize;
 
-                if nx < chunk_count_x && ny < chunk_count_y {
-                    let neighbor_index = self.chunk_index(nx, ny);
-                    next_active_chunks[neighbor_index] = true;
+                if nx < chunk_count_x && ny * chunk_count_x + nx < next_active_chunks.len() {
+                    next_active_chunks[self.chunk_index(nx, ny)] = true;
                 }
             }
         }
@@ -183,7 +171,10 @@ impl SandGame {
 
     pub fn is_chunk_active(&self, chunk_x: usize, chunk_y: usize) -> bool {
         let chunk_index = self.chunk_index(chunk_x, chunk_y);
-        self.active_chunks.get(chunk_index).copied().unwrap_or(false)
+        self.active_chunks
+            .get(chunk_index)
+            .copied()
+            .unwrap_or(false)
     }
 
     fn chunk_index(&self, chunk_x: usize, chunk_y: usize) -> usize {
