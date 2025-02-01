@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import init, { SandGame } from "../../backend/pkg";
+import createModule from "../../backend/sandgame.js";
 
 const App = () => {
   const canvasRef = useRef(null);
   const gridWidth = 300;
   const gridHeight = 300;
   const chunkSize = 20;
+  const moduleRef = useRef(null);
 
   const [brushSize, setBrushSize] = useState(1);
   const MIN_BRUSH_SIZE = 1;
@@ -16,7 +17,8 @@ const App = () => {
   const smoothingWindow = 10;
 
   const mousePosRef = useRef({ x: -1, y: -1 });
-  const [selectedElement, setSelectedElement] = useState("Sand");
+  const [cellTypes, setCellTypes] = useState([]);
+  const [selectedElement, setSelectedElement] = useState(null);
 
   const simulationStateRef = useRef("running");
   const selectedElementRef = useRef("Sand");
@@ -189,8 +191,16 @@ const App = () => {
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-    // Update the texture with the game's grid data
-    const gridData = game.get_grid();
+    const ptr = game.get_grid_ptr();        // pointer to the grid data in WASM memory
+    const size = game.get_grid_size();        // number of elements in the grid
+  
+    // Create a typed array view over the WASM memory using the module instance from the ref.
+    // Ensure moduleRef.current is not null.
+    if (!moduleRef.current) {
+      console.error("Module not loaded yet!");
+      return;
+    }
+    const gridData = new Uint32Array(moduleRef.current.HEAPU32.buffer, ptr, size);
     const pixels = new Uint8Array(gridWidth * gridHeight * 4);
 
     for (let i = 0; i < gridData.length; i++) {
@@ -539,21 +549,27 @@ const App = () => {
   };
 
   const initialize = async () => {
-    await init();
+    // Load the module.
+    const Module = await createModule();
+    moduleRef.current = Module; // Save the module instance for later use
+    
     const canvas = canvasRef.current;
     const gl = canvas.getContext("webgl");
-
+    
     setupCanvas(gl, canvas, gridWidth, gridHeight);
-
-    const game = new SandGame(gridWidth, gridHeight, chunkSize);
-
-    // Initialize WebGL resources
+    
+    // Create your game object.
+    const game = new Module.SandGame(gridWidth, gridHeight, chunkSize);
+    
+    
+    // Initialize WebGL resources...
     const gridProgram = createGridProgram(gl);
     const chunkOverlayProgram = createChunkOverlayProgram(gl);
     const brushProgram = createBrushProgram(gl);
     const gridBuffer = createFullScreenQuadBuffer(gl);
     const gridTexture = createTexture(gl, gridWidth, gridHeight);
-
+    
+    // Set up mouse events
     const cleanupMouseEvents = setupMouseEvents(
       canvas,
       game,
@@ -564,8 +580,8 @@ const App = () => {
       selectedElementRef,
       setBrushSize
     );
-
-    // Start rendering loop
+    
+    // Start the rendering loop
     startRenderingLoop(gl, {
       game,
       gridProgram,
@@ -575,6 +591,8 @@ const App = () => {
       gridTexture,
     });
   };
+  
+  
 
   useEffect(() => {
     initialize();

@@ -8,9 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build-rust": "cd ../backend && wasm-pack build --target web --out-dir pkg --out-name index",
+    "build-cpp": "cd ../backend && emcc sand_game.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o sandgame.js",
     "dev-frontend": "cd ../frontend && npm run dev",
-    "start": "npm run build-rust && npm run dev-frontend"
+    "start": "npm run build-cpp && npm run dev-frontend"
   },
   "dependencies": {
     "backend": "file:../backend/pkg",
