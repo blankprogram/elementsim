@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build-cpp": "cd ../backend && emcc sand_game.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o sandgame.js",
+    "build-cpp": "cd ../backend && emcc Grid.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o Grid.js",
     "dev-frontend": "cd ../frontend && npm run dev",
     "start": "npm run build-cpp && npm run dev-frontend"
   },
