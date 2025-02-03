@@ -2,25 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-// Returns the linear index for cell (x, y)
-size_t Grid::index(size_t x, size_t y) const {
-    return y * width + x;
-}
-
-// Returns the linear index for chunk at (chunk_x, chunk_y)
-size_t Grid::chunk_index(size_t chunk_x, size_t chunk_y) const {
-    size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
-    return chunk_y * chunk_count_x + chunk_x;
-}
-
-// Mark a chunk active based on a cell coordinate.
-void Grid::activate_chunk(size_t x, size_t y) {
-    size_t chunk_x = x / chunk_size;
-    size_t chunk_y = y / chunk_size;
-    active_chunks[chunk_index(chunk_x, chunk_y)] = true;
-}
-
-// Activate the current chunk and its neighbors.
+// Mark neighbor chunks active (neighbors within one chunk in every direction).
 void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {
     size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
     size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
@@ -40,7 +22,6 @@ void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_act
     }
 }
 
-// Constructor: initializes the grid and color buffer.
 Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     : width(w), height(h), chunk_size(chunk_sz),
       active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
@@ -51,12 +32,10 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     for (size_t i = 0; i < grid.size(); ++i) {
         grid[i] = ElementType::create("Empty");
     }
-    // Allocate colorBuffer (4 components per cell).
     colorBuffer.resize(width * height * 4, 0);
     updateColorBuffer();
 }
 
-// Sets a cell at (x, y) to a new type and activates its chunk.
 void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
     if (x < width && y < height) {
         size_t inverted_y = height - 1 - y;
@@ -70,10 +49,10 @@ size_t Grid::get_grid_size() {
     return grid.size();
 }
 
-// Update the preallocated color buffer from the current grid.
 void Grid::updateColorBuffer() {
+    // Update colorBuffer for every cell.
     for (size_t i = 0; i < grid.size(); ++i) {
-        auto col = grid[i]->getColor();  // returns std::array<int,4>
+        auto col = grid[i]->getColor();  // std::array<int, 4>
         size_t base = i * 4;
         colorBuffer[base]     = static_cast<unsigned char>(col[0]);
         colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
@@ -82,10 +61,11 @@ void Grid::updateColorBuffer() {
     }
 }
 
-// Simulation step: update cells and their active chunk flags.
 void Grid::step() {
     std::vector<bool> next_active_chunks(active_chunks.size(), false);
+    // Loop through all rows.
     for (size_t y = 0; y < height; ++y) {
+        // Choose a random iteration order per row.
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
@@ -136,13 +116,8 @@ bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
     return active_chunks[idx];
 }
 
-unsigned int Grid::getWidth() const {
-    return static_cast<unsigned int>(width);
-}
-
-unsigned int Grid::getHeight() const {
-    return static_cast<unsigned int>(height);
-}
+unsigned int Grid::getWidth() const { return static_cast<unsigned int>(width); }
+unsigned int Grid::getHeight() const { return static_cast<unsigned int>(height); }
 
 Element* Grid::get(unsigned int x, unsigned int y) {
     if (x < width && y < height) {
@@ -151,7 +126,7 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     return nullptr;
 }
 
-// Helper function to get element types.
+// Helper function to return element type names.
 #include <vector>
 #include <string>
 std::vector<std::string> getElementTypes() {
@@ -162,7 +137,6 @@ std::vector<std::string> getElementTypes() {
     }
     return types;
 }
-
 
 #include <emscripten/bind.h>
 using namespace emscripten;
@@ -177,7 +151,6 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
         .function("getWidth", &Grid::getWidth)
         .function("getHeight", &Grid::getHeight)
         .function("markChunkActive", &Grid::markChunkActive)
-        // Bind the color buffer functions.
         .function("getColorBufferPtr", &Grid::getColorBufferPtr)
         .function("getColorBufferSize", &Grid::getColorBufferSize)
     ;
@@ -185,4 +158,3 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
     function("getElementTypes", &getElementTypes);
     register_vector<std::string>("VectorString");
 }
-
