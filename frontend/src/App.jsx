@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import createModule from "../../backend/sandgame.js";
+import createModule from "../../backend/Grid.js";
 
 const App = () => {
   const canvasRef = useRef(null);
@@ -559,7 +559,7 @@ const App = () => {
     setupCanvas(gl, canvas, gridWidth, gridHeight);
     
     // Create your game object.
-    const game = new Module.SandGame(gridWidth, gridHeight, chunkSize);
+    const game = new Module.Grid(gridWidth, gridHeight, chunkSize);
     
     
     // Initialize WebGL resources...
