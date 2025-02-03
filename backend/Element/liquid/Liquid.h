@@ -4,7 +4,7 @@
 #include "../Element.h"
 #include "../EmptyCell.h"
 #include "../gas/Gas.h"
-#include "../../Grid.cpp"
+#include "../../Grid.h"
 #include <cmath>
 #include <random>
 #include <functional>
@@ -25,7 +25,7 @@ protected:
 
 public:
     Liquid()
-        : Element(type), rng(std::random_device{}()), gravity(0.2), maxFallSpeed(10),
+        : Element(), rng(std::random_device{}()), gravity(0.2), maxFallSpeed(10),
           gravityAccumulator(0), dispersionRate(5) {
         std::uniform_int_distribution<int> dist(0, 1);
         vel.x = (dist(rng) == 0) ? -1 : 1; // Randomize horizontal direction
@@ -85,8 +85,8 @@ public:
 
     bool tryRandomDiagonalMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) {
         std::vector<Velocity> diagonals = (step % 2 == 0)
-            ? std::vector<Velocity>{{-1, std::floor(vel.y)}, {1, std::floor(vel.y)}} // Even step: Left then Right
-            : std::vector<Velocity>{{1, std::floor(vel.y)}, {-1, std::floor(vel.y)}}; // Odd step: Right then Left
+            ? std::vector<Velocity>{{-1, static_cast<int>(std::floor(vel.y))}, {1, static_cast<int>(std::floor(vel.y))}} // Even step: Left then Right
+            : std::vector<Velocity>{{1, static_cast<int>(std::floor(vel.y))}, {-1, static_cast<int>(std::floor(vel.y))}}; // Odd step: Right then Left
 
         for (const auto& d : diagonals) {
             if (tryMove(x, y, x + d.x, y + d.y, grid, move)) {

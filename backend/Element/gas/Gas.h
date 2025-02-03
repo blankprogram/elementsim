@@ -5,7 +5,7 @@
 #include "../EmptyCell.h"
 #include <random>
 #include <vector>
-#include "../../Grid.cpp"
+#include "../../Grid.h"
 
 class Gas : public Element {
 private:

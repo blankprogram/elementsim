@@ -1,109 +1,147 @@
-#ifndef GRID_H
-#define GRID_H
-
-#include <vector>
-#include <random>
-#include <memory>
-#include <unordered_map>
-#include <emscripten/bind.h>
-#include "Element/Element.h"
-#include "Element/ElementType.h"
+#include "Grid.h"
+#include <algorithm>   // For std::swap
+#include <cmath>       // In case you need math functions in the future
 
 namespace SandSim {
 
-class Grid {
-private:
-    size_t width;
-    size_t height;
-    size_t chunk_size;
-    std::vector<std::unique_ptr<Element>> grid; // Store actual elements
-    std::vector<bool> active_chunks;
-    std::mt19937 rng;
+// --- Private Helper Functions ---
 
-    size_t index(size_t x, size_t y) const {
-        return y * width + x;
-    }
+size_t Grid::index(size_t x, size_t y) const {
+    return y * width + x;
+}
 
-    size_t chunk_index(size_t chunk_x, size_t chunk_y) const {
-        size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
-        return chunk_y * chunk_count_x + chunk_x;
-    }
+size_t Grid::chunk_index(size_t chunk_x, size_t chunk_y) const {
+    size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
+    return chunk_y * chunk_count_x + chunk_x;
+}
 
-    void activate_chunk(size_t x, size_t y) {
-        size_t chunk_x = x / chunk_size;
-        size_t chunk_y = y / chunk_size;
-        active_chunks[chunk_index(chunk_x, chunk_y)] = true;
-    }
+void Grid::activate_chunk(size_t x, size_t y) {
+    size_t chunk_x = x / chunk_size;
+    size_t chunk_y = y / chunk_size;
+    active_chunks[chunk_index(chunk_x, chunk_y)] = true;
+}
 
-public:
-    Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
-        : width(w), height(h), chunk_size(chunk_sz),
-          active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
-          rng(std::random_device{}()) {
-        
-        ElementType::initialize(); // Initialize element map
-        
-        // Fill the grid with EmptyCell instances
-        grid.resize(width * height);
-        for (size_t i = 0; i < grid.size(); ++i) {
-            grid[i] = ElementType::create("Empty");
+void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {
+    // Determine the number of chunks along each axis.
+    size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
+    size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
+    
+    // Find which chunk this cell is in.
+    size_t current_chunk_x = x / chunk_size;
+    size_t current_chunk_y = y / chunk_size;
+    
+    // Mark this chunk and its immediate neighbors as active.
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            int nx = static_cast<int>(current_chunk_x) + dx;
+            int ny = static_cast<int>(current_chunk_y) + dy;
+            if (nx >= 0 && ny >= 0 && static_cast<size_t>(nx) < chunk_count_x && static_cast<size_t>(ny) < chunk_count_y) {
+                next_active_chunks[chunk_index(nx, ny)] = true;
+            }
         }
     }
+}
 
-    void set_cell(unsigned int x, unsigned int y, const std::string& type) {
-        if (x < width && y < height) {
-            size_t inverted_y = height - 1 - y;
-            size_t idx = index(x, inverted_y);
-            grid[idx] = ElementType::create(type);
-            activate_chunk(x, inverted_y);
-        }
+// --- Public Member Functions ---
+
+Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
+    : width(w), height(h), chunk_size(chunk_sz),
+      active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
+      rng(std::random_device{}())
+{
+    // Initialize element map
+    ElementType::initialize();
+    
+    // Fill the grid with EmptyCell instances
+    grid.resize(width * height);
+    for (size_t i = 0; i < grid.size(); ++i) {
+        grid[i] = ElementType::create("Empty");
     }
+}
 
-    uintptr_t get_grid_ptr() {
-        return reinterpret_cast<uintptr_t>(grid.data());
+void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
+    if (x < width && y < height) {
+        // Invert y so that (0,0) is at the bottom-left
+        size_t inverted_y = height - 1 - y;
+        size_t idx = index(x, inverted_y);
+        grid[idx] = ElementType::create(type);
+        activate_chunk(x, inverted_y);
     }
+}
 
-    size_t get_grid_size() {
-        return grid.size();
-    }
+uintptr_t Grid::get_grid_ptr() {
+    return reinterpret_cast<uintptr_t>(grid.data());
+}
 
-    void step() {
-        std::vector<bool> next_active_chunks(active_chunks.size(), false);
+size_t Grid::get_grid_size() {
+    return grid.size();
+}
 
-        for (size_t y = 0; y < height; ++y) {
-            bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
-            if (reverse) {
-                for (size_t x = width; x-- > 0;) {
-                    if (is_chunk_active(x / chunk_size, y / chunk_size)) {
-                        grid[index(x, y)]->behavior(x, y, *this, [this](int fromX, int fromY, int toX, int toY) {
+void Grid::step() {
+    std::vector<bool> next_active_chunks(active_chunks.size(), false);
+
+    for (size_t y = 0; y < height; ++y) {
+        // Randomly decide whether to iterate left-to-right or right-to-left
+        bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
+        if (reverse) {
+            for (size_t x = width; x-- > 0;) {
+                if (is_chunk_active(x / chunk_size, y / chunk_size)) {
+                    grid[index(x, y)]->behavior(
+                        static_cast<int>(x),
+                        static_cast<int>(y),
+                        *this,
+                        [this](int fromX, int fromY, int toX, int toY) {
                             std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                        }, y);
-                        mark_neighbors_active(x, y, next_active_chunks);
-                    }
+                        },
+                        static_cast<int>(y)
+                    );
+                    mark_neighbors_active(x, y, next_active_chunks);
                 }
-            } else {
-                for (size_t x = 0; x < width; ++x) {
-                    if (is_chunk_active(x / chunk_size, y / chunk_size)) {
-                        grid[index(x, y)]->behavior(x, y, *this, [this](int fromX, int fromY, int toX, int toY) {
+            }
+        } else {
+            for (size_t x = 0; x < width; ++x) {
+                if (is_chunk_active(x / chunk_size, y / chunk_size)) {
+                    grid[index(x, y)]->behavior(
+                        static_cast<int>(x),
+                        static_cast<int>(y),
+                        *this,
+                        [this](int fromX, int fromY, int toX, int toY) {
                             std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                        }, y);
-                        mark_neighbors_active(x, y, next_active_chunks);
-                    }
+                        },
+                        static_cast<int>(y)
+                    );
+                    mark_neighbors_active(x, y, next_active_chunks);
                 }
             }
         }
-
-        active_chunks = next_active_chunks;
     }
 
-    bool is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
-        size_t idx = chunk_index(chunk_x, chunk_y);
-        return active_chunks[idx];
+    active_chunks = std::move(next_active_chunks);
+}
+
+bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
+    size_t idx = chunk_index(chunk_x, chunk_y);
+    return active_chunks[idx];
+}
+
+unsigned int Grid::getWidth() const {
+    return static_cast<unsigned int>(width);
+}
+
+unsigned int Grid::getHeight() const {
+    return static_cast<unsigned int>(height);
+}
+
+Element* Grid::get(unsigned int x, unsigned int y) {
+    if (x < width && y < height) {
+        return grid[index(x, y)].get();
     }
-};
+    return nullptr;
+}
 
 } // namespace SandSim
 
+// --- Emscripten Bindings ---
 EMSCRIPTEN_BINDINGS(sand_game_module) {
     using namespace SandSim;
 
@@ -113,7 +151,7 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
         .function("get_grid_ptr", &Grid::get_grid_ptr)
         .function("get_grid_size", &Grid::get_grid_size)
         .function("step", &Grid::step)
-        .function("is_chunk_active", &Grid::is_chunk_active);
+        .function("is_chunk_active", &Grid::is_chunk_active)
+        .function("getWidth", &Grid::getWidth)
+        .function("getHeight", &Grid::getHeight);
 }
-
-#endif // Grid_H

@@ -8,7 +8,7 @@
 #include "solid/moveable/Sand.h"
 #include "solid/immovable/Stone.h"
 #include "liquid/Water.h"
-#include "Gas/Helium.h"
+#include "gas/Helium.h"
 #include "EmptyCell.h"
 
 class ElementType {
