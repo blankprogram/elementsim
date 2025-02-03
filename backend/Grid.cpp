@@ -1,8 +1,6 @@
 #include "Grid.h"
-#include <algorithm>   // For std::swap
-#include <cmath>       // In case you need math functions in the future
-
-namespace SandSim {
+#include <algorithm>   // for std::swap
+#include <cmath>       // for std::floor
 
 // --- Private Helper Functions ---
 
@@ -22,20 +20,18 @@ void Grid::activate_chunk(size_t x, size_t y) {
 }
 
 void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {
-    // Determine the number of chunks along each axis.
     size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
     size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
-    
-    // Find which chunk this cell is in.
     size_t current_chunk_x = x / chunk_size;
     size_t current_chunk_y = y / chunk_size;
-    
-    // Mark this chunk and its immediate neighbors as active.
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
             int nx = static_cast<int>(current_chunk_x) + dx;
             int ny = static_cast<int>(current_chunk_y) + dy;
-            if (nx >= 0 && ny >= 0 && static_cast<size_t>(nx) < chunk_count_x && static_cast<size_t>(ny) < chunk_count_y) {
+            if (nx >= 0 && ny >= 0 &&
+                static_cast<size_t>(nx) < chunk_count_x &&
+                static_cast<size_t>(ny) < chunk_count_y)
+            {
                 next_active_chunks[chunk_index(nx, ny)] = true;
             }
         }
@@ -49,10 +45,10 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
       active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
       rng(std::random_device{}())
 {
-    // Initialize element map
+    // Initialize the element factory map.
     ElementType::initialize();
-    
-    // Fill the grid with EmptyCell instances
+
+    // Fill the grid with "Empty" elements.
     grid.resize(width * height);
     for (size_t i = 0; i < grid.size(); ++i) {
         grid[i] = ElementType::create("Empty");
@@ -61,7 +57,7 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
 
 void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
     if (x < width && y < height) {
-        // Invert y so that (0,0) is at the bottom-left
+        // Invert y so that (0,0) is at the bottom left.
         size_t inverted_y = height - 1 - y;
         size_t idx = index(x, inverted_y);
         grid[idx] = ElementType::create(type);
@@ -81,7 +77,7 @@ void Grid::step() {
     std::vector<bool> next_active_chunks(active_chunks.size(), false);
 
     for (size_t y = 0; y < height; ++y) {
-        // Randomly decide whether to iterate left-to-right or right-to-left
+        // Randomly decide whether to iterate left-to-right or right-to-left.
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
@@ -114,7 +110,6 @@ void Grid::step() {
                 }
             }
         }
-    }
 
     active_chunks = std::move(next_active_chunks);
 }
@@ -137,21 +132,4 @@ Element* Grid::get(unsigned int x, unsigned int y) {
         return grid[index(x, y)].get();
     }
     return nullptr;
-}
-
-} // namespace SandSim
-
-// --- Emscripten Bindings ---
-EMSCRIPTEN_BINDINGS(sand_game_module) {
-    using namespace SandSim;
-
-    emscripten::class_<Grid>("Grid")
-        .constructor<unsigned int, unsigned int, unsigned int>()
-        .function("set_cell", &Grid::set_cell)
-        .function("get_grid_ptr", &Grid::get_grid_ptr)
-        .function("get_grid_size", &Grid::get_grid_size)
-        .function("step", &Grid::step)
-        .function("is_chunk_active", &Grid::is_chunk_active)
-        .function("getWidth", &Grid::getWidth)
-        .function("getHeight", &Grid::getHeight);
 }

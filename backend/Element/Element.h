@@ -6,14 +6,14 @@
 
 class Element {
 protected:
-    std::string color;
+    ColorConstants::Color color;
     bool is_static;
 
 public:
     Element() : is_static(false) {}
 
     // Virtual function for behavior
-    virtual void behavior(int x, int y) = 0;
+    virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) = 0;
 
     // Get the color of the element
     std::string getColor() const { return color; }
