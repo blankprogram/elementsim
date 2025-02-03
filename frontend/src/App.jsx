@@ -7,6 +7,7 @@ const App = () => {
   const gridHeight = 300;
   const chunkSize = 20;
   const moduleRef = useRef(null);
+  
 
   const [brushSize, setBrushSize] = useState(1);
   const MIN_BRUSH_SIZE = 1;
@@ -462,24 +463,15 @@ const App = () => {
       return { x, y };
     };
 
-    const spawnInRadius = (centerX, centerY) => {
+    const spawnInRadius = (centerX, centerY, game) => {
       const radius = brushSizeRef.current;
-
-      // Map the selected element to a numeric value
-      const elementMap = {
-        Empty: 0,
-        Sand: 1,
-        Water: 2,
-      };
-      const cellType = elementMap[selectedElementRef.current];
-
+      // Use the selected element directly, which is a string (e.g. "Sand")
+      const cellType = selectedElementRef.current; 
       for (let dx = -radius; dx <= radius; dx++) {
         for (let dy = -radius; dy <= radius; dy++) {
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= radius) {
+          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
             const x = centerX + dx;
             const y = centerY + dy;
-
             if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
               game.set_cell(x, y, cellType);
             }
@@ -487,6 +479,7 @@ const App = () => {
         }
       }
     };
+    
 
     const startDrawing = () => {
       if (isDrawing) return; // Prevent multiple intervals
@@ -557,7 +550,11 @@ const App = () => {
     const gl = canvas.getContext("webgl");
     
     setupCanvas(gl, canvas, gridWidth, gridHeight);
-    
+    const typesVector = Module.getElementTypes(); // returns a VectorString (std::vector<std::string>)
+    console.log(typesVector)
+    const types = Array.from(typesVector); // Convert to a plain JS array
+    console.log("Element types:", types);
+    console.log(types)
     // Create your game object.
     const game = new Module.Grid(gridWidth, gridHeight, chunkSize);
     
@@ -645,16 +642,16 @@ const App = () => {
             Create
             {submenuVisible === "CREATE" && (
               <ul className="context-submenu">
-                {["Sand", "Water", "Empty"].map((key) => (
-                  <li
-                    key={key}
-                    className="context-menu-item"
-                    onClick={() => selectElement(key)}
-                  >
-                    {key}
-                  </li>
-                ))}
-              </ul>
+              {cellTypes.map((type) => (
+                <li
+                  key={type}
+                  className="context-menu-item"
+                  onClick={() => selectElement(type)}
+                >
+                  {type}
+                </li>
+              ))}
+            </ul>
             )}
           </li>
           <li
