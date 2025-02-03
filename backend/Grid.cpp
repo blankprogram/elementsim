@@ -1,6 +1,6 @@
 #include "Grid.h"
-#include <algorithm>   // for std::swap
-#include <cmath>       // for std::floor
+#include <algorithm>
+#include <cmath>
 
 // --- Private Helper Functions ---
 
@@ -45,10 +45,7 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
       active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
       rng(std::random_device{}())
 {
-    // Initialize the element factory map.
     ElementType::initialize();
-
-    // Fill the grid with "Empty" elements.
     grid.resize(width * height);
     for (size_t i = 0; i < grid.size(); ++i) {
         grid[i] = ElementType::create("Empty");
@@ -57,7 +54,6 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
 
 void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
     if (x < width && y < height) {
-        // Invert y so that (0,0) is at the bottom left.
         size_t inverted_y = height - 1 - y;
         size_t idx = index(x, inverted_y);
         grid[idx] = ElementType::create(type);
@@ -75,9 +71,7 @@ size_t Grid::get_grid_size() {
 
 void Grid::step() {
     std::vector<bool> next_active_chunks(active_chunks.size(), false);
-
     for (size_t y = 0; y < height; ++y) {
-        // Randomly decide whether to iterate left-to-right or right-to-left.
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
@@ -110,7 +104,7 @@ void Grid::step() {
                 }
             }
         }
-
+    }
     active_chunks = std::move(next_active_chunks);
 }
 

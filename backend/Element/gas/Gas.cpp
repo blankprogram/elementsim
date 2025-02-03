@@ -1,5 +1,5 @@
 #include "Gas.h"
-#include "../../Grid.h"  // Now we include the full definition.
+#include "../../Grid.h"
 #include <random>
 #include <vector>
 #include <functional>

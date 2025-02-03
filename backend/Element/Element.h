@@ -1,30 +1,31 @@
 #ifndef ELEMENT_H
 #define ELEMENT_H
 
-#include <string>
 #include "ColorConstants.h"
+#include <functional>
+
+// Forward declaration of Grid so we can use it in the behavior signature.
+class Grid;
 
 class Element {
 protected:
+    // Now color is of type ColorConstants::Color (i.e. std::array<int,4>)
     ColorConstants::Color color;
     bool is_static;
-
 public:
     Element() : is_static(false) {}
-
-    // Virtual function for behavior
+    
+    // The behavior function now takes a reference to Grid,
+    // a movement callback, and an integer “step.”
     virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) = 0;
-
-    // Get the color of the element
-    std::string getColor() const { return color; }
-
-    // Check if element is static
+    
+    // Return the color (as an array<int,4>)
+    ColorConstants::Color getColor() const { return color; }
+    
     bool isStatic() const { return is_static; }
-
-    // Mark element as static/dynamic
     void setStatic() { is_static = true; }
     void setDynamic() { is_static = false; }
-
+    
     virtual ~Element() = default;
 };
 

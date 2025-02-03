@@ -7,10 +7,9 @@
 #include <vector>
 #include <functional>
 
-// Forward declare Grid to break circular dependency.
+// Forward-declare Grid.
 class Grid;
 
-// A helper struct used for movement options.
 struct MovementOption {
     int dx;
     int dy;
@@ -24,7 +23,6 @@ protected:
     std::mt19937 rng;
 public:
     Gas();
-    // Override behavior with full signature.
     virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override;
 protected:
     bool isMovable(Element* cell);

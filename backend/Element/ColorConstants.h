@@ -63,34 +63,25 @@ private:
 
     static inline size_t rainbowIndex = 0;
     static inline std::random_device rd;
-    static inline std::mt19937 rng{rd()}; // Random number generator
+    static inline std::mt19937 rng{rd()};
 
 public:
     static Color getColor(const std::string& type) {
-        std::string uppercaseType = toUpperCase(type);
-
+        std::string uppercaseType = type;
+        for (char& c : uppercaseType) {
+            c = std::toupper(c);
+        }
         if (colorMap.find(uppercaseType) == colorMap.end()) {
             throw std::runtime_error("No colors defined for type: " + type);
         }
-
         std::vector<Color>& colors = colorMap[uppercaseType];
-
         if (uppercaseType == "RAINBOWSAND") {
-            Color color = colors[rainbowIndex];
+            Color col = colors[rainbowIndex];
             rainbowIndex = (rainbowIndex + 1) % colors.size();
-            return color;
+            return col;
         }
-
         std::uniform_int_distribution<size_t> dist(0, colors.size() - 1);
         return colors[dist(rng)];
-    }
-
-private:
-    static std::string toUpperCase(std::string str) {
-        for (char& c : str) {
-            c = std::toupper(c);
-        }
-        return str;
     }
 };
 

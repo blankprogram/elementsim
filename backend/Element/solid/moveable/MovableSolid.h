@@ -9,7 +9,7 @@
 #include <random>
 #include <functional>
 
-// Forward declare Grid.
+// Forward-declare Grid.
 class Grid;
 
 struct VelocityMS {

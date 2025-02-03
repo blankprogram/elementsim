@@ -7,7 +7,7 @@
 class Water : public Liquid {
 public:
     Water() : Liquid() {
-        color = ColorConstants::getColor("Water");
+        color = ColorConstants::getColor("WATER");
     }
 };
 
