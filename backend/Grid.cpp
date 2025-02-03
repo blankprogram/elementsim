@@ -2,8 +2,6 @@
 #include <algorithm>
 #include <cmath>
 
-// --- Private Helper Functions ---
-
 size_t Grid::index(size_t x, size_t y) const {
     return y * width + x;
 }
@@ -38,8 +36,6 @@ void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_act
     }
 }
 
-// --- Public Member Functions ---
-
 Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     : width(w), height(h), chunk_size(chunk_sz),
       active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
@@ -50,6 +46,10 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     for (size_t i = 0; i < grid.size(); ++i) {
         grid[i] = ElementType::create("Empty");
     }
+    // Allocate colorBuffer: each cell gets 4 components (RGBA)
+    colorBuffer.resize(width * height * 4, 0);
+    // Initialize it (for example, by updating based on current cells)
+    updateColorBuffer();
 }
 
 void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
@@ -61,12 +61,22 @@ void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
     }
 }
 
-uintptr_t Grid::get_grid_ptr() {
-    return reinterpret_cast<uintptr_t>(grid.data());
-}
-
 size_t Grid::get_grid_size() {
     return grid.size();
+}
+
+void Grid::updateColorBuffer() {
+    // Loop through all cells; update the color buffer with each cell's RGBA values.
+    // We assume that each cell’s getColor() returns an std::array<int, 4>.
+    for (size_t i = 0; i < grid.size(); i++) {
+        auto col = grid[i]->getColor();
+        size_t base = i * 4;
+        // Clamp values to [0,255] if needed.
+        colorBuffer[base]     = static_cast<unsigned char>(col[0]);
+        colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
+        colorBuffer[base + 2] = static_cast<unsigned char>(col[2]);
+        colorBuffer[base + 3] = static_cast<unsigned char>(col[3]);
+    }
 }
 
 void Grid::step() {
@@ -106,6 +116,8 @@ void Grid::step() {
         }
     }
     active_chunks = std::move(next_active_chunks);
+    // Update the color buffer once the simulation step is done.
+    updateColorBuffer();
 }
 
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
@@ -128,13 +140,12 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     return nullptr;
 }
 
+// (The rest of your helper function getElementTypes() remains unchanged)
+
 #include <vector>
 #include <string>
 
-// Returns the available element type names as a vector of std::string.
-// Ensure that ElementType::initialize() is called so that the map is populated.
 std::vector<std::string> getElementTypes() {
-    // Ensure the map is initialized.
     ElementType::initialize();
     std::vector<std::string> types;
     for (const auto &entry : ElementType::getMap()) {
@@ -146,6 +157,8 @@ std::vector<std::string> getElementTypes() {
 
 
 
+
+
 #include <emscripten/bind.h>
 using namespace emscripten;
 
@@ -153,20 +166,22 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
     class_<Grid>("Grid")
         .constructor<unsigned int, unsigned int, unsigned int>()
         .function("set_cell", &Grid::set_cell)
-        .function("get_grid_ptr", &Grid::get_grid_ptr)
+        //.function("get_grid_ptr", &Grid::get_grid_ptr) // You can remove this if you no longer use it.
         .function("get_grid_size", &Grid::get_grid_size)
         .function("step", &Grid::step)
         .function("is_chunk_active", &Grid::is_chunk_active)
         .function("getWidth", &Grid::getWidth)
         .function("getHeight", &Grid::getHeight)
-        .function("markChunkActive", &Grid::markChunkActive);
+        .function("markChunkActive", &Grid::markChunkActive)
+        // NEW: Bind the color buffer functions.
+        .function("getColorBufferPtr", &Grid::getColorBufferPtr)
+        .function("getColorBufferSize", &Grid::getColorBufferSize)
+    ;
 
-    // Bind our helper function that returns the available element type names.
     function("getElementTypes", &getElementTypes);
-
-    // Register std::vector<std::string> so that it can be passed to JS.
     register_vector<std::string>("VectorString");
 }
+
 
 
 

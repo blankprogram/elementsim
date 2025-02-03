@@ -8,8 +8,8 @@ class Grid;
 
 class EmptyCell : public Element {
 public:
-    EmptyCell() : Element() {}
-    // Provide an empty behavior implementation.
+    EmptyCell() : Element() {color = ColorConstants::getColor("EMPTY");}
+    
     virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override { }
 };
 

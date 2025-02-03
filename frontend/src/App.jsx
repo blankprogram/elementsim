@@ -19,7 +19,8 @@ const App = () => {
 
   const mousePosRef = useRef({ x: -1, y: -1 });
   const [cellTypes, setCellTypes] = useState([]);
-  const [selectedElement, setSelectedElement] = useState(null);
+  const [selectedElement, setSelectedElement] = useState("Sand");
+
 
   const simulationStateRef = useRef("running");
   const selectedElementRef = useRef("Sand");
@@ -192,42 +193,10 @@ const App = () => {
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-    const ptr = game.get_grid_ptr();        // pointer to the grid data in WASM memory
-    const size = game.get_grid_size();        // number of elements in the grid
-  
-    // Create a typed array view over the WASM memory using the module instance from the ref.
-    // Ensure moduleRef.current is not null.
-    if (!moduleRef.current) {
-      console.error("Module not loaded yet!");
-      return;
-    }
-    const gridData = new Uint32Array(moduleRef.current.HEAPU32.buffer, ptr, size);
-    const pixels = new Uint8Array(gridWidth * gridHeight * 4);
-
-    for (let i = 0; i < gridData.length; i++) {
-      const value = gridData[i];
-      const base = i * 4;
-
-      if (value === 1) {
-        // Sand (Yellow)
-        pixels[base] = 255;
-        pixels[base + 1] = 255;
-        pixels[base + 2] = 0;
-        pixels[base + 3] = 255;
-      } else if (value === 2) {
-        // Water (Blue)
-        pixels[base] = 0;
-        pixels[base + 1] = 0;
-        pixels[base + 2] = 255;
-        pixels[base + 3] = 255;
-      } else {
-        // Empty (Black)
-        pixels[base] = 0;
-        pixels[base + 1] = 0;
-        pixels[base + 2] = 0;
-        pixels[base + 3] = 255;
-      }
-    }
+    
+    const colorPtr = game.getColorBufferPtr();
+const colorBufferSize = game.getColorBufferSize();
+const pixels = new Uint8Array(moduleRef.current.HEAPU8.buffer, colorPtr, colorBufferSize);
 
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(
@@ -242,7 +211,6 @@ const App = () => {
       pixels
     );
 
-    // Draw the grid
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   };
 
@@ -473,6 +441,7 @@ const App = () => {
             const x = centerX + dx;
             const y = centerY + dy;
             if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
+              console.log("CELL TYPE", cellType)
               game.set_cell(x, y, cellType);
             }
           }
@@ -488,7 +457,7 @@ const App = () => {
       spawnInterval = setInterval(() => {
         const pos = mousePosRef.current;
         if (pos.x >= 0 && pos.y >= 0) {
-          spawnInRadius(pos.x, pos.y);
+          spawnInRadius(pos.x, pos.y,game);
         }
       }, 50); // Spawn every 50ms (adjust as needed)
     };
@@ -546,15 +515,20 @@ const App = () => {
     const Module = await createModule();
     moduleRef.current = Module; // Save the module instance for later use
     
+    const typesVector = Module.getElementTypes();
+    const types = [];
+    for (let i = 0; i < typesVector.size(); i++) {
+      types.push(typesVector.get(i));
+    }
+    console.log("Element types:", types);
+    setCellTypes(types);
+    
+
     const canvas = canvasRef.current;
     const gl = canvas.getContext("webgl");
     
     setupCanvas(gl, canvas, gridWidth, gridHeight);
-    const typesVector = Module.getElementTypes(); // returns a VectorString (std::vector<std::string>)
-    console.log(typesVector)
-    const types = Array.from(typesVector); // Convert to a plain JS array
-    console.log("Element types:", types);
-    console.log(types)
+
     // Create your game object.
     const game = new Module.Grid(gridWidth, gridHeight, chunkSize);
     
