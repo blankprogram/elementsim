@@ -1,34 +1,70 @@
 #include "MovableSolid.h"
 #include "../../../Grid.h"
+#include <algorithm>
 
-// Constructor remains unchanged.
 MovableSolid::MovableSolid()
     : gravity(0.2), maxFallSpeed(10), gravityAccumulator(0)
 {
-    vel = {0, -1}; // Not used in this minimal version.
+    vel = {0, -1};
 }
 
 bool MovableSolid::isSwappable(Element* cell) {
-    // Allow swapping with EmptyCell, Gas, or Liquid.
-    return dynamic_cast<EmptyCell*>(cell) || dynamic_cast<Gas*>(cell) || dynamic_cast<Liquid*>(cell);
+    return dynamic_cast<EmptyCell*>(cell) != nullptr ||
+           dynamic_cast<Gas*>(cell) != nullptr ||
+           dynamic_cast<Liquid*>(cell) != nullptr;
 }
 
-void MovableSolid::behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int /*step*/) {
-    // Simple falling-sand behavior:
-    // 1. If the cell directly below is swappable, move down.
-    if (y > 0 && isSwappable(grid.get(x, y - 1))) {
-        move(x, y, x, y - 1);
-        return;
+void MovableSolid::applyGravity() {
+    gravityAccumulator += gravity;
+    if (gravityAccumulator >= 1.0) {
+        int gravityPixels = static_cast<int>(std::floor(gravityAccumulator));
+        vel.y = std::max(vel.y - gravityPixels, -maxFallSpeed);
+        gravityAccumulator -= gravityPixels;
     }
-    // 2. If not, try moving diagonally left-down.
-    if (x > 0 && y > 0 && isSwappable(grid.get(x - 1, y - 1))) {
-        move(x, y, x - 1, y - 1);
-        return;
+}
+
+bool MovableSolid::tryFall(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move) {
+    int targetY = y + static_cast<int>(std::floor(vel.y));
+    targetY = std::max(0, targetY);
+    int currentY = y;
+    while (currentY > targetY && isSwappable(grid.get(x, currentY - 1))) {
+        currentY--;
     }
-    // 3. Then try moving diagonally right-down.
-    if (x < static_cast<int>(grid.getWidth()) - 1 && y > 0 && isSwappable(grid.get(x + 1, y - 1))) {
-        move(x, y, x + 1, y - 1);
-        return;
+    if (currentY < y) {
+        move(x, y, x, currentY);
+        return true;
     }
-    // Otherwise, do nothing.
+    return false;
+}
+
+bool MovableSolid::tryRandomDiagonalMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) {
+    std::vector<VelocityMS> diagonals = (step % 2 == 0)
+        ? std::vector<VelocityMS>{{-1, static_cast<int>(std::floor(vel.y))}, {1, static_cast<int>(std::floor(vel.y))}}
+        : std::vector<VelocityMS>{{1, static_cast<int>(std::floor(vel.y))}, {-1, static_cast<int>(std::floor(vel.y))}};
+    for (const auto& d : diagonals) {
+        if (tryMove(x, y, x + d.x, y + d.y, grid, move))
+            return true;
+    }
+    return false;
+}
+
+bool MovableSolid::tryMove(int x, int y, int targetX, int targetY, Grid& grid, std::function<void(int, int, int, int)> move) {
+    if (targetX >= 0 && targetX < static_cast<int>(grid.getWidth()) &&
+        targetY >= 0 && targetY < static_cast<int>(grid.getHeight()))
+    {
+        if (isSwappable(grid.get(targetX, targetY))) {
+            move(x, y, targetX, targetY);
+            return true;
+        }
+    }
+    return false;
+}
+
+void MovableSolid::behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) {
+    applyGravity();
+    if (tryFall(x, y, grid, move))
+        return;
+    if (tryRandomDiagonalMovement(x, y, grid, move, step))
+        return;
+    vel.y = -1;
 }

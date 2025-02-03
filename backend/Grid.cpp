@@ -2,22 +2,22 @@
 #include <algorithm>
 #include <cmath>
 
+
+
 // Mark neighbor chunks active (neighbors within one chunk in every direction).
 void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {
+    // Compute chunk dimensions once.
     size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
     size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
     size_t current_chunk_x = x / chunk_size;
     size_t current_chunk_y = y / chunk_size;
     for (int dy = -1; dy <= 1; ++dy) {
+        int ny = static_cast<int>(current_chunk_y) + dy;
+        if (ny < 0 || static_cast<size_t>(ny) >= chunk_count_y) continue;
         for (int dx = -1; dx <= 1; ++dx) {
             int nx = static_cast<int>(current_chunk_x) + dx;
-            int ny = static_cast<int>(current_chunk_y) + dy;
-            if (nx >= 0 && ny >= 0 &&
-                static_cast<size_t>(nx) < chunk_count_x &&
-                static_cast<size_t>(ny) < chunk_count_y)
-            {
-                next_active_chunks[chunk_index(nx, ny)] = true;
-            }
+            if (nx < 0 || static_cast<size_t>(nx) >= chunk_count_x) continue;
+            next_active_chunks[chunk_index(nx, ny)] = true;
         }
     }
 }
@@ -32,6 +32,7 @@ Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     for (size_t i = 0; i < grid.size(); ++i) {
         grid[i] = ElementType::create("Empty");
     }
+    // Allocate colorBuffer (4 components per cell) and update.
     colorBuffer.resize(width * height * 4, 0);
     updateColorBuffer();
 }
@@ -50,7 +51,7 @@ size_t Grid::get_grid_size() {
 }
 
 void Grid::updateColorBuffer() {
-    // Update colorBuffer for every cell.
+    // Iterate over the grid and update the RGBA buffer.
     for (size_t i = 0; i < grid.size(); ++i) {
         auto col = grid[i]->getColor();  // std::array<int, 4>
         size_t base = i * 4;
@@ -62,14 +63,17 @@ void Grid::updateColorBuffer() {
 }
 
 void Grid::step() {
+    // Allocate next_active_chunks vector.
     std::vector<bool> next_active_chunks(active_chunks.size(), false);
-    // Loop through all rows.
+    
+    // Cache width and chunk_size divisions (if possible).
     for (size_t y = 0; y < height; ++y) {
-        // Choose a random iteration order per row.
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
-                if (is_chunk_active(x / chunk_size, y / chunk_size)) {
+                // Precompute the chunk index.
+                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
+                if (active_chunks[chunk_idx]) {
                     bool moved = false;
                     grid[index(x, y)]->behavior(
                         static_cast<int>(x),
@@ -88,7 +92,8 @@ void Grid::step() {
             }
         } else {
             for (size_t x = 0; x < width; ++x) {
-                if (is_chunk_active(x / chunk_size, y / chunk_size)) {
+                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
+                if (active_chunks[chunk_idx]) {
                     bool moved = false;
                     grid[index(x, y)]->behavior(
                         static_cast<int>(x),
@@ -112,8 +117,7 @@ void Grid::step() {
 }
 
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
-    size_t idx = chunk_index(chunk_x, chunk_y);
-    return active_chunks[idx];
+    return active_chunks[chunk_index(chunk_x, chunk_y)];
 }
 
 unsigned int Grid::getWidth() const { return static_cast<unsigned int>(width); }
@@ -126,7 +130,6 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     return nullptr;
 }
 
-// Helper function to return element type names.
 #include <vector>
 #include <string>
 std::vector<std::string> getElementTypes() {
@@ -154,7 +157,7 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
         .function("getColorBufferPtr", &Grid::getColorBufferPtr)
         .function("getColorBufferSize", &Grid::getColorBufferSize)
     ;
-
+    
     function("getElementTypes", &getElementTypes);
     register_vector<std::string>("VectorString");
 }
