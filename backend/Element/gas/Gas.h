@@ -15,7 +15,7 @@ private:
 
 public:
     Gas() 
-        : Element(type), rng(std::random_device{}()), dispersalRange(5) {
+        : Element(), rng(std::random_device{}()), dispersalRange(5) {
         std::uniform_int_distribution<int> dist(0, 1);
         sidewaysDirection = (dist(rng) == 0) ? -1 : 1;
     }

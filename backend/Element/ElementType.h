@@ -6,13 +6,10 @@
 #include <memory>
 #include <string>
 #include "solid/moveable/Sand.h"
-#include "Dirt.h"
-#include "Stone.h"
-#include "Wood.h"
-#include "Water.h"
-#include "Helium.h"
+#include "solid/immovable/Stone.h"
+#include "liquid/Water.h"
+#include "Gas/Helium.h"
 #include "EmptyCell.h"
-#include "RainbowSand.h"
 
 class ElementType {
 public:
@@ -23,12 +20,9 @@ public:
     static void initialize() {
         elements["Empty"] = []() { return std::make_unique<EmptyCell>(); };
         elements["Sand"] = []() { return std::make_unique<Sand>(); };
-        elements["Dirt"] = []() { return std::make_unique<Dirt>(); };
         elements["Stone"] = []() { return std::make_unique<Stone>(); };
-        elements["Wood"] = []() { return std::make_unique<Wood>(); };
         elements["Water"] = []() { return std::make_unique<Water>(); };
         elements["Helium"] = []() { return std::make_unique<Helium>(); };
-        elements["RainbowSand"] = []() { return std::make_unique<RainbowSand>(); };
     }
 
     // Factory function to create elements dynamically
