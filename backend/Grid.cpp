@@ -127,3 +127,20 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     }
     return nullptr;
 }
+
+// --- EMScripten Bindings ---
+// (This block is now only in Grid.cpp so it is registered once.)
+#include <emscripten/bind.h>
+using namespace emscripten;
+EMSCRIPTEN_BINDINGS(sand_game_module) {
+    class_<Grid>("Grid")
+        .constructor<unsigned int, unsigned int, unsigned int>()
+        .function("set_cell", &Grid::set_cell)
+        .function("get_grid_ptr", &Grid::get_grid_ptr)
+        .function("get_grid_size", &Grid::get_grid_size)
+        .function("step", &Grid::step)
+        .function("is_chunk_active", &Grid::is_chunk_active)
+        .function("getWidth", &Grid::getWidth)
+        .function("getHeight", &Grid::getHeight)
+        .function("markChunkActive", &Grid::markChunkActive);
+}

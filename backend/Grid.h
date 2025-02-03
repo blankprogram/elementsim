@@ -5,17 +5,15 @@
 #include <random>
 #include <memory>
 #include <string>
-#include <emscripten/bind.h>
 #include "Element/Element.h"
 #include "Element/ElementType.h"
 
-// Grid does not depend on the concrete element implementations.
 class Grid {
 private:
     size_t width;
     size_t height;
     size_t chunk_size;
-    std::vector<std::unique_ptr<Element>> grid; // Stores the elements.
+    std::vector<std::unique_ptr<Element>> grid; // Stores the elements
     std::vector<bool> active_chunks;
     std::mt19937 rng;
 
@@ -35,23 +33,10 @@ public:
     unsigned int getHeight() const;
     Element* get(unsigned int x, unsigned int y);
 
-    // Public helper to mark a chunk active (used by elements).
+    // Expose a public version of markChunkActive (used by elements)
     void markChunkActive(unsigned int x, unsigned int y) {
         activate_chunk(x, y);
     }
 };
-
-EMSCRIPTEN_BINDINGS(sand_game_module) {
-    emscripten::class_<Grid>("Grid")
-        .constructor<unsigned int, unsigned int, unsigned int>()
-        .function("set_cell", &Grid::set_cell)
-        .function("get_grid_ptr", &Grid::get_grid_ptr)
-        .function("get_grid_size", &Grid::get_grid_size)
-        .function("step", &Grid::step)
-        .function("is_chunk_active", &Grid::is_chunk_active)
-        .function("getWidth", &Grid::getWidth)
-        .function("getHeight", &Grid::getHeight)
-        .function("markChunkActive", &Grid::markChunkActive);
-}
 
 #endif // GRID_H

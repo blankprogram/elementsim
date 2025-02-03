@@ -31,7 +31,8 @@ public:
     }
 };
 
-// Define the static member.
-std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> ElementType::elements;
+// Previously, you defined the static member here.
+// Remove the following line from the header:
+// std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> ElementType::elements;
 
 #endif // ELEMENTTYPE_H
