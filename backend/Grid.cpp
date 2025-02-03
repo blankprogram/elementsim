@@ -128,10 +128,27 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     return nullptr;
 }
 
-// --- EMScripten Bindings ---
-// (This block is now only in Grid.cpp so it is registered once.)
+#include <vector>
+#include <string>
+
+// Returns the available element type names as a vector of std::string.
+// Ensure that ElementType::initialize() is called so that the map is populated.
+std::vector<std::string> getElementTypes() {
+    // Ensure the map is initialized.
+    ElementType::initialize();
+    std::vector<std::string> types;
+    for (const auto &entry : ElementType::getMap()) {
+        types.push_back(entry.first);
+    }
+    return types;
+}
+
+
+
+
 #include <emscripten/bind.h>
 using namespace emscripten;
+
 EMSCRIPTEN_BINDINGS(sand_game_module) {
     class_<Grid>("Grid")
         .constructor<unsigned int, unsigned int, unsigned int>()
@@ -143,4 +160,13 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
         .function("getWidth", &Grid::getWidth)
         .function("getHeight", &Grid::getHeight)
         .function("markChunkActive", &Grid::markChunkActive);
+
+    // Bind our helper function that returns the available element type names.
+    function("getElementTypes", &getElementTypes);
+
+    // Register std::vector<std::string> so that it can be passed to JS.
+    register_vector<std::string>("VectorString");
 }
+
+
+

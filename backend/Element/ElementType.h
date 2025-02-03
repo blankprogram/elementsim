@@ -13,26 +13,30 @@
 
 class ElementType {
 public:
-    // Map of element types to their constructors.
-    static std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> elements;
+    // Instead of a public static member, we define a getter that returns a reference
+    // to a function-local static unordered_map.
+    static std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>>& getMap() {
+        static std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> elements;
+        return elements;
+    }
 
     static void initialize() {
-        elements["Empty"] = []() { return std::make_unique<EmptyCell>(); };
-        elements["Sand"]  = []() { return std::make_unique<Sand>(); };
-        elements["Stone"] = []() { return std::make_unique<Stone>(); };
-        elements["Water"] = []() { return std::make_unique<Water>(); };
+        auto& elements = getMap();
+        if (!elements.empty()) return; // Already initialized.
+        elements["Empty"]  = []() { return std::make_unique<EmptyCell>(); };
+        elements["Sand"]   = []() { return std::make_unique<Sand>(); };
+        elements["Stone"]  = []() { return std::make_unique<Stone>(); };
+        elements["Water"]  = []() { return std::make_unique<Water>(); };
         elements["Helium"] = []() { return std::make_unique<Helium>(); };
     }
 
     static std::unique_ptr<Element> create(const std::string& type) {
+        auto& elements = getMap();
         if (elements.find(type) != elements.end())
             return elements[type]();
         return nullptr;
     }
 };
 
-// Previously, you defined the static member here.
-// Remove the following line from the header:
-// std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> ElementType::elements;
 
 #endif // ELEMENTTYPE_H
