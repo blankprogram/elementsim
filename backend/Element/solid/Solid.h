@@ -3,7 +3,7 @@
 
 #include "../IElement.h"
 
-class Solid : public Element {
+class Solid : public IElement {
 public:
     Solid() {}
 };

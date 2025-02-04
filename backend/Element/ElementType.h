@@ -9,7 +9,7 @@
 #include "solid/immovable/Stone.h"
 #include "liquid/Water.h"
 #include "gas/Helium.h"
-#include "ElementVariant.h"
+#include "ElementVariant.h"  // Make sure this is included!
 
 class ElementType {
 public:
