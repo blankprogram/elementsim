@@ -3,6 +3,26 @@
 #include <cmath>
 
 
+void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType) {
+    int startX = (int)centerX - (int)radius;
+    int startY = (int)centerY - (int)radius;
+    int endX = centerX + radius;
+    int endY = centerY + radius;
+
+    for (int x = startX; x <= endX; x++) {
+        for (int y = startY; y <= endY; y++) {
+            if (x >= 0 && x < (int)width && y >= 0 && y < (int)height) {
+                int dx = x - centerX;
+                int dy = y - centerY;
+                if (std::sqrt(dx * dx + dy * dy) <= radius) {
+                    grid[index(x, height - 1 - y)] = ElementType::create(cellType);
+                    activate_chunk(x, height - 1 - y);
+                }
+            }
+        }
+    }
+    updateColorBuffer();
+}
 
 // Mark neighbor chunks active (neighbors within one chunk in every direction).
 void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {
@@ -130,6 +150,17 @@ Element* Grid::get(unsigned int x, unsigned int y) {
     return nullptr;
 }
 
+std::vector<unsigned int> Grid::get_active_chunk_indices() {
+    std::vector<unsigned int> activeIndices;
+    size_t totalChunks = active_chunks.size();
+    for (size_t i = 0; i < totalChunks; i++) {
+        if (active_chunks[i]) {
+            activeIndices.push_back(i);
+        }
+    }
+    return activeIndices;
+}
+
 #include <vector>
 #include <string>
 std::vector<std::string> getElementTypes() {
@@ -156,8 +187,11 @@ EMSCRIPTEN_BINDINGS(sand_game_module) {
         .function("markChunkActive", &Grid::markChunkActive)
         .function("getColorBufferPtr", &Grid::getColorBufferPtr)
         .function("getColorBufferSize", &Grid::getColorBufferSize)
+        .function("spawnInRadius", &Grid::spawn_in_radius)
+        .function("getActiveChunkIndices", &Grid::get_active_chunk_indices)
     ;
     
     function("getElementTypes", &getElementTypes);
     register_vector<std::string>("VectorString");
+    register_vector<unsigned int>("VectorUInt");
 }

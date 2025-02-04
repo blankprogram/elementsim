@@ -47,11 +47,13 @@ public:
     unsigned int getWidth() const;
     unsigned int getHeight() const;
     Element* get(unsigned int x, unsigned int y);
+    void spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType);
 
     // Expose a public version of markChunkActive.
     void markChunkActive(unsigned int x, unsigned int y) {
         activate_chunk(x, y);
     }
+    std::vector<unsigned int> get_active_chunk_indices();
     
     // Accessors for the color buffer.
     uintptr_t getColorBufferPtr() const { return reinterpret_cast<uintptr_t>(colorBuffer.data()); }
