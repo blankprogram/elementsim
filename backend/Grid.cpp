@@ -22,7 +22,7 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
                 int dx = x - cX;
                 int dy = y - cY;
                 // Compare the squared distance to the squared radius.
-                if (dx * dx + dy * dy <= radiusSq) {
+                if (dx * dx + dy * dy < radiusSq) {
                     grid[index(x, height - 1 - y)] = ElementType::create(cellType);
                     activate_chunk(x, height - 1 - y);
                 }
