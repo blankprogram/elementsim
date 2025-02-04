@@ -7,7 +7,9 @@
 #include <string>
 #include "solid/moveable/Sand.h"
 #include "solid/moveable/RainbowSand.h"
+#include "solid/moveable/Dirt.h"
 #include "solid/immovable/Stone.h"
+#include "solid/immovable/Wood.h"
 #include "liquid/Water.h"
 #include "gas/Helium.h"
 #include "EmptyCell.h"
@@ -30,6 +32,8 @@ public:
         elements["Water"]  = []() { return std::make_unique<Water>(); };
         elements["Helium"] = []() { return std::make_unique<Helium>(); };
         elements["Rainbow Sand"] = []() { return std::make_unique<RainbowSand>(); };
+        elements["Dirt"] = []() { return std::make_unique<Dirt>(); };
+        elements["Wood"] = []() { return std::make_unique<Wood>(); };
     }
 
     static std::unique_ptr<Element> create(const std::string& type) {
