@@ -1,0 +1,34 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build-cpp && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "build-cpp": "cd ../backend && emcc Grid.cpp Element/gas/Gas.cpp Element/liquid/Liquid.cpp Element/solid/moveable/MovableSolid.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o Grid.js",
+    "dev-frontend": "cd ../frontend && npm run dev",
+    "start": "npm run build-cpp && npm run dev-frontend"
+  },
+  "dependencies": {
+    "backend": "file:../backend/pkg",
+    "ElementSim": "file:../backend/pkg",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite-plugin-wasm": "^3.4.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.14.0",
+    "vite": "^6.0.5"
+  }
+}
