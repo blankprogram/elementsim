@@ -1,5 +1,6 @@
 #include "MovableSolid.h"
 #include "../../../Grid.h"
+#include "../../ElementVariant.h" // Full inclusion here
 #include <algorithm>
 #include <variant>
 

@@ -2,7 +2,6 @@
 #define GAS_H
 
 #include "../IElement.h"
-#include "../ElementVariant.h"
 #include "../EmptyCell.h"
 #include <random>
 #include <vector>
@@ -11,6 +10,7 @@
 
 // Forward-declare Grid.
 class Grid;
+class ElementVariant; // Forward declaration instead of including ElementVariant.h
 
 struct MovementOption {
     int dx;
