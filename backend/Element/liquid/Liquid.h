@@ -2,7 +2,6 @@
 #define LIQUID_H
 
 #include "../IElement.h"
-#include "../ElementVariant.h"
 #include "../EmptyCell.h"
 #include "../gas/Gas.h"
 #include <cmath>

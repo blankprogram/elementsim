@@ -1,6 +1,7 @@
 #include "Liquid.h"
 #include "../../Grid.h"
 #include <algorithm>
+#include "../ElementVariant.h"
 #include <variant>
 
 Liquid::Liquid()

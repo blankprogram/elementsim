@@ -1,6 +1,7 @@
 #include "Gas.h"
 #include "../../Grid.h"
 #include <random>
+#include "../ElementVariant.h"
 #include <vector>
 #include <functional>
 #include <variant>

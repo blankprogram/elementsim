@@ -2,7 +2,6 @@
 #define GAS_H
 
 #include "../IElement.h"
-#include "../ElementVariant.h"
 #include "../EmptyCell.h"
 #include <random>
 #include <vector>

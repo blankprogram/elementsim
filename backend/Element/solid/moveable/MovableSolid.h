@@ -2,7 +2,7 @@
 #define MOVABLE_SOLID_H
 
 #include "../Solid.h"           // Make sure Solid.h now uses IElement!
-#include "../../ElementVariant.h" // Now ElementVariant is known.
+
 #include <cmath>
 #include <random>
 #include <functional>

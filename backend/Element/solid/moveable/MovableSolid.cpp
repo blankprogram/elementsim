@@ -1,6 +1,6 @@
 #include "MovableSolid.h"
 #include "../../../Grid.h"
-
+#include "../../ElementVariant.h" // Now ElementVariant is known.
 #include <algorithm>
 #include <variant>
 
