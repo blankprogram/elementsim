@@ -2,6 +2,7 @@
 #define MOVABLE_SOLID_H
 
 #include "../Solid.h"           // Make sure Solid.h now uses IElement!
+#include "../../ElementVariant.h" // Now ElementVariant is known.
 #include <cmath>
 #include <random>
 #include <functional>
@@ -10,7 +11,6 @@
 
 // Forward-declare Grid.
 class Grid;
-class ElementVariant; // Forward declaration instead of including ElementVariant.h
 
 struct VelocityMS {
     int x;

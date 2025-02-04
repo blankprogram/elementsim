@@ -2,6 +2,7 @@
 #define LIQUID_H
 
 #include "../IElement.h"
+#include "../ElementVariant.h"
 #include "../EmptyCell.h"
 #include "../gas/Gas.h"
 #include <cmath>
@@ -10,7 +11,6 @@
 #include <variant>
 
 class Grid;  // Forward-declare
-class ElementVariant;
 
 struct Velocity {
     int x;

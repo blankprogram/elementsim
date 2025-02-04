@@ -2,7 +2,6 @@
 #include "../../Grid.h"
 #include <algorithm>
 #include <variant>
-#include "../ElementVariant.h"
 
 Liquid::Liquid()
     : gravity(0.2), maxFallSpeed(10), gravityAccumulator(0), dispersionRate(5)
