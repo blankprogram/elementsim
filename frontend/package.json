@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run build-cpp && vite build",
     "lint": "eslint .",
+    "deploy": "npm run build && gh-pages -d dist",
     "preview": "vite preview",
     "build-cpp": "cd ../backend && emcc Grid.cpp Element/gas/Gas.cpp Element/liquid/Liquid.cpp Element/solid/moveable/MovableSolid.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o Grid.js",
     "dev-frontend": "cd ../frontend && npm run dev",
@@ -28,6 +29,7 @@
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "gh-pages": "^6.3.0",
     "globals": "^15.14.0",
     "vite": "^6.0.5"
   }
