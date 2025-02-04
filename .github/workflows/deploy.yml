@@ -13,24 +13,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Set up Node.js 18.x
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
 
       - name: Install Emscripten SDK
         run: |
-          # Clone the emsdk repository
           git clone https://github.com/emscripten-core/emsdk.git
           cd emsdk
-          # Install and activate the latest SDK version
           ./emsdk install latest
           ./emsdk activate latest
-          # Source the environment variables so that emcc becomes available.
           source ./emsdk_env.sh
-          # Export the PATH for subsequent steps.
-          echo "::add-path::$(pwd)/upstream/emscripten"
-          # For debugging, show version:
+          echo "$PWD/upstream/emscripten" >> $GITHUB_PATH
           emcc --version
 
       - name: Install frontend dependencies
