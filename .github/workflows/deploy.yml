@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - master  # or "main" if your default branch is "main"
+      - master  # Change to "main" if your default branch is "main"
 
 jobs:
   build-deploy:
@@ -43,4 +43,5 @@ jobs:
         working-directory: frontend
         env:
           CI: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run deploy

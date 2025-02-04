@@ -11,7 +11,7 @@
     "build-cpp": "cd ../backend && emcc Grid.cpp Element/gas/Gas.cpp Element/liquid/Liquid.cpp Element/solid/moveable/MovableSolid.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 --bind -o Grid.js",
     "dev-frontend": "cd ../frontend && npm run dev",
     "start": "npm run build-cpp && npm run dev-frontend",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist -r https://x-access-token:$GITHUB_TOKEN@github.com/blankprogram/elementsim.git"
   },
   "dependencies": {
     "backend": "file:../backend/pkg",
