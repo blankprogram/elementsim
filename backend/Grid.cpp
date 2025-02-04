@@ -93,18 +93,20 @@ void Grid::updateColorBuffer() {
 }
 
 void Grid::step() {
-    // Allocate next_active_chunks vector.
-    std::vector<bool> next_active_chunks(active_chunks.size(), false);
+    // Snapshot the current active_chunks state.
+    std::vector<bool> prevActive = active_chunks;
+    // Clear the active_chunks vector in place.
+    std::fill(active_chunks.begin(), active_chunks.end(), false);
     
-    // Cache width and chunk_size divisions (if possible).
+    // Process each cell.
     for (size_t y = 0; y < height; ++y) {
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
-                // Precompute the chunk index.
                 size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (active_chunks[chunk_idx]) {
+                if (prevActive[chunk_idx]) {
                     bool moved = false;
+                    // Process the cell.
                     grid[index(x, y)]->behavior(
                         static_cast<int>(x),
                         static_cast<int>(y),
@@ -114,16 +116,19 @@ void Grid::step() {
                             moved = true;
                         },
                         static_cast<int>(y)
+                        // Here, the behavior function is responsible for updating active_chunks.
                     );
-                    if (moved) {
-                        mark_neighbors_active(x, y, next_active_chunks);
+                    // If the cell moved or is a gas cell (which should always remain active),
+                    // mark its chunk (and neighbors) active.
+                    if (moved ) {
+                        mark_neighbors_active(x, y, active_chunks);
                     }
                 }
             }
         } else {
             for (size_t x = 0; x < width; ++x) {
                 size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (active_chunks[chunk_idx]) {
+                if (prevActive[chunk_idx]) {
                     bool moved = false;
                     grid[index(x, y)]->behavior(
                         static_cast<int>(x),
@@ -136,15 +141,16 @@ void Grid::step() {
                         static_cast<int>(y)
                     );
                     if (moved) {
-                        mark_neighbors_active(x, y, next_active_chunks);
+                        mark_neighbors_active(x, y, active_chunks);
                     }
                 }
             }
         }
     }
-    active_chunks = std::move(next_active_chunks);
+    // Now active_chunks has been updated in place—no need to move a temporary vector.
     updateColorBuffer();
 }
+
 
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
     return active_chunks[chunk_index(chunk_x, chunk_y)];

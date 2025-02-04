@@ -34,6 +34,9 @@ protected:
     void generateSidewaysOptions(std::vector<MovementOption>& options, int x);
     bool tryMove(int fromX, int fromY, int toX, int toY, Grid& grid, std::function<void(int, int, int, int)> move);
     void reverseDirection();
+   bool  movementAvailable(int x, int y, Grid& grid);
+   bool attemptSidewaysMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move);
+
 };
 
 #endif // GAS_H
