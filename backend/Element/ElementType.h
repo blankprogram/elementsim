@@ -4,16 +4,18 @@
 #include <unordered_map>
 #include <functional>
 #include <string>
+// Include concrete element headers first:
 #include "EmptyCell.h"
 #include "solid/moveable/Sand.h"
 #include "solid/immovable/Stone.h"
 #include "liquid/Water.h"
 #include "gas/Helium.h"
-#include "ElementVariant.h"  // Make sure this is included!
+
+// Then include ElementVariant:
+#include "ElementVariant.h"
 
 class ElementType {
 public:
-    // Return a mapping from element name to a lambda that returns an ElementVariant.
     static std::unordered_map<std::string, std::function<ElementVariant()>>& getMap() {
         static std::unordered_map<std::string, std::function<ElementVariant()>> elements;
         return elements;

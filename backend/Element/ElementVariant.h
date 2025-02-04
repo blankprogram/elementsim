@@ -1,4 +1,3 @@
-// ElementVariant.h
 #ifndef ELEMENTVARIANT_H
 #define ELEMENTVARIANT_H
 
@@ -9,7 +8,6 @@
 #include "liquid/Water.h"
 #include "gas/Helium.h"
 
-// This variant holds one of all available element types.
 using ElementVariant = std::variant<
     EmptyCell,
     Sand,
