@@ -4,17 +4,25 @@
 
 
 void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType) {
-    int startX = (int)centerX - (int)radius;
-    int startY = (int)centerY - (int)radius;
-    int endX = centerX + radius;
-    int endY = centerY + radius;
+    // Precompute integer values and the squared radius.
+    int cX = static_cast<int>(centerX);
+    int cY = static_cast<int>(centerY);
+    int r = static_cast<int>(radius);
+    int startX = cX - r;
+    int startY = cY - r;
+    int endX   = cX + r;
+    int endY   = cY + r;
+    double radiusSq = static_cast<double>(r) * r;
 
-    for (int x = startX; x <= endX; x++) {
-        for (int y = startY; y <= endY; y++) {
-            if (x >= 0 && x < (int)width && y >= 0 && y < (int)height) {
-                int dx = x - centerX;
-                int dy = y - centerY;
-                if (std::sqrt(dx * dx + dy * dy) <= radius) {
+    // Loop over the bounding square of the circle.
+    for (int x = startX; x <= endX; ++x) {
+        for (int y = startY; y <= endY; ++y) {
+            // Check that (x, y) is within the grid bounds.
+            if (x >= 0 && x < static_cast<int>(width) && y >= 0 && y < static_cast<int>(height)) {
+                int dx = x - cX;
+                int dy = y - cY;
+                // Compare the squared distance to the squared radius.
+                if (dx * dx + dy * dy <= radiusSq) {
                     grid[index(x, height - 1 - y)] = ElementType::create(cellType);
                     activate_chunk(x, height - 1 - y);
                 }
@@ -23,6 +31,8 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
     }
     updateColorBuffer();
 }
+
+
 
 // Mark neighbor chunks active (neighbors within one chunk in every direction).
 void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks) {

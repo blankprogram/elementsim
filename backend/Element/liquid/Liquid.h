@@ -27,6 +27,10 @@ protected:
 public:
     Liquid();
     virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override;
+
+    // Mark as liquid.
+    virtual bool isLiquid() const override { return true; }
+    
 protected:
     bool isSwappable(Element* cell);
     void applyGravity();

@@ -12,7 +12,8 @@ Gas::Gas()
 }
 
 bool Gas::isMovable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr;
+    // Instead of dynamic_cast<EmptyCell*>, use isEmpty().
+    return cell && cell->isEmpty();
 }
 
 bool Gas::attemptMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move) {

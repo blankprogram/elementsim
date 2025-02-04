@@ -6,12 +6,15 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <vector>
+#include <cctype>
 
 class ColorConstants {
 public:
     using Color = std::array<int, 4>;
 
 private:
+    // Define color palettes for each type.
     static inline std::map<std::string, std::vector<Color>> colorMap = {
         {"SAND", {
             {240, 215, 150, 255},
@@ -50,36 +53,51 @@ private:
         {"EMPTY", {
             {0, 0, 0, 255}
         }},
-        {"RAINBOWSAND", {
-            {255, 0, 0, 255},
-            {255, 127, 0, 255},
-            {255, 255, 0, 255},
-            {0, 255, 0, 255},
-            {0, 0, 255, 255},
-            {75, 0, 130, 255},
-            {148, 0, 211, 255}
+        // For the rainbow, the order is defined as red, orange, yellow, green, blue, indigo, violet.
+        {"RAINBOW", {
+            {255, 0, 0, 255},     // Red
+            {255, 127, 0, 255},   // Orange
+            {255, 255, 0, 255},   // Yellow
+            {0, 255, 0, 255},     // Green
+            {0, 0, 255, 255},     // Blue
+            {75, 0, 130, 255},    // Indigo
+            {148, 0, 211, 255}    // Violet
         }}
     };
 
-    static inline size_t rainbowIndex = 0;
+    // For sequential types, we track the current index per type.
+    static inline std::map<std::string, size_t> sequentialIndices = {
+        {"RAINBOW", 0},
+        {"DIRT", 0},
+        {"WOOD", 0}
+    };
+
+    // A random number generator for types that use random selection.
     static inline std::random_device rd;
     static inline std::mt19937 rng{rd()};
 
 public:
+    // Returns the next color for the given type.
+    // For "RAINBOW", "DIRT", and "WOOD", it returns colors sequentially.
+    // For other types, it returns a random color from the palette.
     static Color getColor(const std::string& type) {
+        // Convert type to uppercase.
         std::string uppercaseType = type;
         for (char& c : uppercaseType) {
-            c = std::toupper(c);
+            c = static_cast<char>(std::toupper(c));
         }
         if (colorMap.find(uppercaseType) == colorMap.end()) {
             throw std::runtime_error("No colors defined for type: " + type);
         }
         std::vector<Color>& colors = colorMap[uppercaseType];
-        if (uppercaseType == "RAINBOWSAND") {
-            Color col = colors[rainbowIndex];
-            rainbowIndex = (rainbowIndex + 1) % colors.size();
+        // If this type should be sequentially cycled, use our sequentialIndices map.
+        if (sequentialIndices.find(uppercaseType) != sequentialIndices.end()) {
+            size_t index = sequentialIndices[uppercaseType];
+            Color col = colors[index];
+            sequentialIndices[uppercaseType] = (index + 1) % colors.size();
             return col;
         }
+        // Otherwise, return a random color.
         std::uniform_int_distribution<size_t> dist(0, colors.size() - 1);
         return colors[dist(rng)];
     }

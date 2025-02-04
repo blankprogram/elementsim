@@ -9,9 +9,7 @@ MovableSolid::MovableSolid()
 }
 
 bool MovableSolid::isSwappable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr ||
-           dynamic_cast<Gas*>(cell) != nullptr ||
-           dynamic_cast<Liquid*>(cell) != nullptr;
+    return cell && (cell->isEmpty() || cell->isGas() || cell->isLiquid());
 }
 
 void MovableSolid::applyGravity() {

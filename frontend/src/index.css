@@ -29,6 +29,14 @@ html, body {
   width: 200px;
 }
 
+.context-submenu .context-menu-item {
+  display: block;         /* Make each item block level */
+  width: 100%;            /* Take up full width */
+  box-sizing: border-box; /* Include padding/borders in width */
+  white-space: nowrap;    /* Prevent text from wrapping */
+}
+
+
 .context-menu-item {
   display: flex;
   justify-content: space-between;

@@ -24,6 +24,10 @@ protected:
 public:
     Gas();
     virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override;
+
+    // Instead of dynamic_cast, we report our type:
+    virtual bool isGas() const override { return true; }
+    
 protected:
     bool isMovable(Element* cell);
     bool attemptMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move);

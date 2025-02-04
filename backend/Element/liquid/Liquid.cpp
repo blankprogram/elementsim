@@ -12,7 +12,8 @@ Liquid::Liquid()
 }
 
 bool Liquid::isSwappable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr || dynamic_cast<Gas*>(cell) != nullptr;
+    // Instead of checking with dynamic_cast for EmptyCell or Gas, use our virtual methods.
+    return cell && (cell->isEmpty() || cell->isGas());
 }
 
 void Liquid::applyGravity() {

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include "solid/moveable/Sand.h"
+#include "solid/moveable/RainbowSand.h"
 #include "solid/immovable/Stone.h"
 #include "liquid/Water.h"
 #include "gas/Helium.h"
@@ -28,6 +29,7 @@ public:
         elements["Stone"]  = []() { return std::make_unique<Stone>(); };
         elements["Water"]  = []() { return std::make_unique<Water>(); };
         elements["Helium"] = []() { return std::make_unique<Helium>(); };
+        elements["Rainbow Sand"] = []() { return std::make_unique<RainbowSand>(); };
     }
 
     static std::unique_ptr<Element> create(const std::string& type) {
