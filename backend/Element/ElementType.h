@@ -3,40 +3,38 @@
 
 #include <unordered_map>
 #include <functional>
-#include <memory>
 #include <string>
+#include "EmptyCell.h"
 #include "solid/moveable/Sand.h"
 #include "solid/immovable/Stone.h"
 #include "liquid/Water.h"
 #include "gas/Helium.h"
-#include "EmptyCell.h"
+#include "ElementVariant.h"
 
 class ElementType {
 public:
-    // Instead of a public static member, we define a getter that returns a reference
-    // to a function-local static unordered_map.
-    static std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>>& getMap() {
-        static std::unordered_map<std::string, std::function<std::unique_ptr<Element>()>> elements;
+    // Return a mapping from element name to a lambda that returns an ElementVariant.
+    static std::unordered_map<std::string, std::function<ElementVariant()>>& getMap() {
+        static std::unordered_map<std::string, std::function<ElementVariant()>> elements;
         return elements;
     }
 
     static void initialize() {
         auto& elements = getMap();
-        if (!elements.empty()) return; // Already initialized.
-        elements["Empty"]  = []() { return std::make_unique<EmptyCell>(); };
-        elements["Sand"]   = []() { return std::make_unique<Sand>(); };
-        elements["Stone"]  = []() { return std::make_unique<Stone>(); };
-        elements["Water"]  = []() { return std::make_unique<Water>(); };
-        elements["Helium"] = []() { return std::make_unique<Helium>(); };
+        if (!elements.empty()) return;
+        elements["Empty"]  = []() { return ElementVariant(EmptyCell()); };
+        elements["Sand"]   = []() { return ElementVariant(Sand()); };
+        elements["Stone"]  = []() { return ElementVariant(Stone()); };
+        elements["Water"]  = []() { return ElementVariant(Water()); };
+        elements["Helium"] = []() { return ElementVariant(Helium()); };
     }
 
-    static std::unique_ptr<Element> create(const std::string& type) {
+    static ElementVariant create(const std::string& type) {
         auto& elements = getMap();
         if (elements.find(type) != elements.end())
             return elements[type]();
-        return nullptr;
+        return ElementVariant(EmptyCell());
     }
 };
-
 
 #endif // ELEMENTTYPE_H

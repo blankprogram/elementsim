@@ -3,16 +3,22 @@
 #include <random>
 #include <vector>
 #include <functional>
+#include <variant>
+#include <cmath>
 
 Gas::Gas()
-    : Element(), rng(std::random_device{}()), dispersalRange(5)
+    : dispersalRange(5), rng(std::random_device{}())
 {
     std::uniform_int_distribution<int> dist(0, 1);
     sidewaysDirection = (dist(rng) == 0) ? -1 : 1;
 }
 
-bool Gas::isMovable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr;
+bool Gas::isMovable(const ElementVariant &cell) {
+    // Gas moves into an EmptyCell.
+    return std::visit([](auto &elem) -> bool {
+        using T = std::decay_t<decltype(elem)>;
+        return std::is_same_v<T, EmptyCell>;
+    }, cell);
 }
 
 bool Gas::attemptMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move) {
@@ -23,7 +29,7 @@ bool Gas::attemptMovement(int x, int y, Grid& grid, std::function<void(int, int,
     };
     generateSidewaysOptions(movementOptions, x);
     std::uniform_real_distribution<double> prob(0.0, 1.0);
-    for (const auto& option : movementOptions) {
+    for (const auto &option : movementOptions) {
         if (prob(rng) < option.chance &&
             tryMove(x, y, x + option.dx, y + option.dy, grid, move))
         {
@@ -43,8 +49,7 @@ bool Gas::tryMove(int fromX, int fromY, int toX, int toY, Grid& grid, std::funct
     if (toX >= 0 && toX < static_cast<int>(grid.getWidth()) &&
         toY >= 0 && toY < static_cast<int>(grid.getHeight()))
     {
-        Element* targetCell = grid.get(toX, toY);
-        if (isMovable(targetCell)) {
+        if (isMovable(grid.get(toX, toY))) {
             move(fromX, fromY, toX, toY);
             return true;
         }
@@ -56,7 +61,10 @@ void Gas::reverseDirection() {
     sidewaysDirection *= -1;
 }
 
-void Gas::behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int /*step*/) {
+void Gas::behavior(int x, int y, Grid& grid, 
+                   std::function<void(int, int, int, int)> move, int /*step*/)
+{
+    // Mark the chunk active (if your grid uses chunking).
     grid.markChunkActive(x, y);
     if (attemptMovement(x, y, grid, move))
         return;

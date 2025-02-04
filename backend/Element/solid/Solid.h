@@ -1,7 +1,7 @@
 #ifndef SOLID_H
 #define SOLID_H
 
-#include "../Element.h"
+#include "../IElement.h"
 
 class Solid : public Element {
 public:

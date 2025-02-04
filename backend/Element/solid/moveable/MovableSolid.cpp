@@ -1,17 +1,22 @@
 #include "MovableSolid.h"
 #include "../../../Grid.h"
 #include <algorithm>
+#include <variant>
 
+// Constructor: initialize gravity, etc.
 MovableSolid::MovableSolid()
     : gravity(0.2), maxFallSpeed(10), gravityAccumulator(0)
 {
     vel = {0, -1};
 }
 
-bool MovableSolid::isSwappable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr ||
-           dynamic_cast<Gas*>(cell) != nullptr ||
-           dynamic_cast<Liquid*>(cell) != nullptr;
+// Replace dynamic_cast with a compile–time check via std::visit.
+bool MovableSolid::isSwappable(const ElementVariant &cell) {
+    return std::visit([](auto &elem) -> bool {
+        using T = std::decay_t<decltype(elem)>;
+        // Swappable if the target is an EmptyCell, Gas, or Liquid.
+        return std::is_same_v<T, EmptyCell> || std::is_same_v<T, Gas> || std::is_same_v<T, Liquid>;
+    }, cell);
 }
 
 void MovableSolid::applyGravity() {
@@ -27,6 +32,7 @@ bool MovableSolid::tryFall(int x, int y, Grid& grid, std::function<void(int, int
     int targetY = y + static_cast<int>(std::floor(vel.y));
     targetY = std::max(0, targetY);
     int currentY = y;
+    // Use grid.get(x, currentY-1) which now returns an ElementVariant.
     while (currentY > targetY && isSwappable(grid.get(x, currentY - 1))) {
         currentY--;
     }
@@ -60,11 +66,14 @@ bool MovableSolid::tryMove(int x, int y, int targetX, int targetY, Grid& grid, s
     return false;
 }
 
-void MovableSolid::behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) {
+void MovableSolid::behavior(int x, int y, Grid& grid, 
+                            std::function<void(int, int, int, int)> move, int step)
+{
     applyGravity();
     if (tryFall(x, y, grid, move))
         return;
     if (tryRandomDiagonalMovement(x, y, grid, move, step))
         return;
+    // Reset vertical velocity if nothing happens.
     vel.y = -1;
 }

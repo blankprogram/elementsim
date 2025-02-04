@@ -1,16 +1,17 @@
 #ifndef EMPTYCELL_H
 #define EMPTYCELL_H
 
-#include "Element.h"
+#include "IElement.h"
 
-// Forward-declare Grid so we can use it in the behavior signature.
-class Grid;
-
-class EmptyCell : public Element {
-public:
-    EmptyCell() : Element() {color = ColorConstants::getColor("EMPTY");}
-    
-    virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override { }
+struct EmptyCell : public IElement {
+    EmptyCell() { 
+        color = ColorConstants::getColor("EMPTY");
+        is_static = true; // if that is desired
+    }
+    inline void behavior(int /*x*/, int /*y*/, Grid& /*grid*/,
+                 std::function<void(int, int, int, int)> /*move*/, int /*step*/) {
+        // No behavior.
+    }
 };
 
 #endif // EMPTYCELL_H

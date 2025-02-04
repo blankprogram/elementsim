@@ -1,22 +1,23 @@
 #ifndef LIQUID_H
 #define LIQUID_H
 
-#include "../Element.h"
+#include "../IElement.h"
+#include "../ElementVariant.h"
 #include "../EmptyCell.h"
 #include "../gas/Gas.h"
 #include <cmath>
 #include <random>
 #include <functional>
+#include <variant>
 
-// Forward-declare Grid.
-class Grid;
+class Grid;  // Forward-declare
 
 struct Velocity {
     int x;
     int y;
 };
 
-class Liquid : public Element {
+class Liquid : public IElement {
 protected:
     Velocity vel;
     double gravity;
@@ -26,9 +27,11 @@ protected:
     std::mt19937 rng;
 public:
     Liquid();
-    virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override;
+    // Inline non-virtual behavior.
+    inline void behavior(int x, int y, Grid& grid, 
+                         std::function<void(int, int, int, int)> move, int step);
 protected:
-    bool isSwappable(Element* cell);
+    bool isSwappable(const ElementVariant &cell);
     void applyGravity();
     void capVelocity();
     bool tryFall(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move);

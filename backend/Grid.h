@@ -5,15 +5,16 @@
 #include <random>
 #include <memory>
 #include <string>
-#include "Element/Element.h"
+#include "Element/IElement.h"
 #include "Element/ElementType.h"
+#include "Element/ElementVariant.h"
 
 class Grid {
 private:
     size_t width;
     size_t height;
     size_t chunk_size;
-    std::vector<std::unique_ptr<Element>> grid;  // simulation cells
+    std::vector<ElementVariant> grid;
     std::vector<bool> active_chunks;             // per-chunk active flags
     std::mt19937 rng;
     std::vector<unsigned char> colorBuffer;      // RGBA buffer
@@ -46,7 +47,9 @@ public:
     bool is_chunk_active(unsigned int chunk_x, unsigned int chunk_y);
     unsigned int getWidth() const;
     unsigned int getHeight() const;
-    Element* get(unsigned int x, unsigned int y);
+    ElementVariant& get(unsigned int x, unsigned int y) {
+    return grid[index(x, y)];
+}
 
     // Expose a public version of markChunkActive.
     void markChunkActive(unsigned int x, unsigned int y) {

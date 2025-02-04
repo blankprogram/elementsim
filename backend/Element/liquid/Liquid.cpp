@@ -1,18 +1,23 @@
 #include "Liquid.h"
 #include "../../Grid.h"
 #include <algorithm>
+#include <variant>
 
 Liquid::Liquid()
-    : Element(), rng(std::random_device{}()), gravity(0.2), maxFallSpeed(10),
-      gravityAccumulator(0), dispersionRate(5)
+    : gravity(0.2), maxFallSpeed(10), gravityAccumulator(0), dispersionRate(5)
 {
+    // Initialize velocity randomly.
     std::uniform_int_distribution<int> dist(0, 1);
     vel.x = (dist(rng) == 0) ? -1 : 1;
     vel.y = -1;
 }
 
-bool Liquid::isSwappable(Element* cell) {
-    return dynamic_cast<EmptyCell*>(cell) != nullptr || dynamic_cast<Gas*>(cell) != nullptr;
+bool Liquid::isSwappable(const ElementVariant &cell) {
+    // Liquid can swap with EmptyCell or Gas.
+    return std::visit([](auto &elem) -> bool {
+        using T = std::decay_t<decltype(elem)>;
+        return std::is_same_v<T, EmptyCell> || std::is_same_v<T, Gas>;
+    }, cell);
 }
 
 void Liquid::applyGravity() {
@@ -47,7 +52,7 @@ bool Liquid::tryRandomDiagonalMovement(int x, int y, Grid& grid, std::function<v
     std::vector<Velocity> diagonals = (step % 2 == 0)
         ? std::vector<Velocity>{{-1, static_cast<int>(std::floor(vel.y))}, {1, static_cast<int>(std::floor(vel.y))}}
         : std::vector<Velocity>{{1, static_cast<int>(std::floor(vel.y))}, {-1, static_cast<int>(std::floor(vel.y))}};
-    for (const auto& d : diagonals) {
+    for (const auto &d : diagonals) {
         if (tryMove(x, y, x + d.x, y + d.y, grid, move))
             return true;
     }
@@ -94,7 +99,9 @@ bool Liquid::tryMove(int x, int y, int targetX, int targetY, Grid& grid, std::fu
     return false;
 }
 
-void Liquid::behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) {
+void Liquid::behavior(int x, int y, Grid& grid, 
+                      std::function<void(int, int, int, int)> move, int step)
+{
     applyGravity();
     capVelocity();
     if (tryFall(x, y, grid, move))

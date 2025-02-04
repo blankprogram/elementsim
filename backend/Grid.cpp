@@ -51,9 +51,10 @@ size_t Grid::get_grid_size() {
 }
 
 void Grid::updateColorBuffer() {
-    // Iterate over the grid and update the RGBA buffer.
     for (size_t i = 0; i < grid.size(); ++i) {
-        auto col = grid[i]->getColor();  // std::array<int, 4>
+        std::array<int, 4> col = std::visit([](auto &elem) {
+            return elem.getColor();
+        }, grid[i]);
         size_t base = i * 4;
         colorBuffer[base]     = static_cast<unsigned char>(col[0]);
         colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
@@ -62,29 +63,30 @@ void Grid::updateColorBuffer() {
     }
 }
 
+
 void Grid::step() {
-    // Allocate next_active_chunks vector.
     std::vector<bool> next_active_chunks(active_chunks.size(), false);
-    
-    // Cache width and chunk_size divisions (if possible).
+
     for (size_t y = 0; y < height; ++y) {
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         if (reverse) {
             for (size_t x = width; x-- > 0;) {
-                // Precompute the chunk index.
                 size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
                 if (active_chunks[chunk_idx]) {
                     bool moved = false;
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                    );
+                    std::visit([&](auto &elem) {
+                        // Call the element’s inline behavior.
+                        elem.behavior(
+                            static_cast<int>(x),
+                            static_cast<int>(y),
+                            *this,
+                            [this, &moved](int fromX, int fromY, int toX, int toY) {
+                                std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
+                                moved = true;
+                            },
+                            static_cast<int>(y)
+                        );
+                    }, grid[index(x, y)]);
                     if (moved) {
                         mark_neighbors_active(x, y, next_active_chunks);
                     }
@@ -95,16 +97,18 @@ void Grid::step() {
                 size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
                 if (active_chunks[chunk_idx]) {
                     bool moved = false;
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                    );
+                    std::visit([&](auto &elem) {
+                        elem.behavior(
+                            static_cast<int>(x),
+                            static_cast<int>(y),
+                            *this,
+                            [this, &moved](int fromX, int fromY, int toX, int toY) {
+                                std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
+                                moved = true;
+                            },
+                            static_cast<int>(y)
+                        );
+                    }, grid[index(x, y)]);
                     if (moved) {
                         mark_neighbors_active(x, y, next_active_chunks);
                     }
@@ -116,6 +120,7 @@ void Grid::step() {
     updateColorBuffer();
 }
 
+
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
     return active_chunks[chunk_index(chunk_x, chunk_y)];
 }
@@ -123,12 +128,6 @@ bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
 unsigned int Grid::getWidth() const { return static_cast<unsigned int>(width); }
 unsigned int Grid::getHeight() const { return static_cast<unsigned int>(height); }
 
-Element* Grid::get(unsigned int x, unsigned int y) {
-    if (x < width && y < height) {
-        return grid[index(x, y)].get();
-    }
-    return nullptr;
-}
 
 #include <vector>
 #include <string>
