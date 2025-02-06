@@ -12,6 +12,7 @@
 #include <cmath>
 #include <emscripten/emscripten.h>
 #include <emscripten/threading.h>
+#include <unordered_set> // Include for unordered_set
 
 class Grid {
 private:
@@ -22,6 +23,8 @@ private:
     std::vector<bool> active_chunks;             // per-chunk active flags
     std::mt19937 rng;
     std::vector<unsigned char> colorBuffer;      // RGBA buffer
+    std::vector<bool> processed; // Reusable processed array
+    std::unordered_set<size_t> changed_chunks; // Chunks to update
 
     // --- Inline helper functions ---
     inline size_t index(size_t x, size_t y) const { return y * width + x; }
@@ -42,6 +45,7 @@ private:
 
     // Update the color buffer from the grid.
     void updateColorBuffer();
+    void updateColorBuffer(const std::unordered_set<size_t>& chunks);
 
 public:
     Grid(unsigned int w, unsigned int h, unsigned int chunk_sz);

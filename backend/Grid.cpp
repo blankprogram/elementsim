@@ -1,6 +1,14 @@
 #include "Grid.h"
 #include <algorithm>
 #include <cmath>
+#include <vector> // Ensure this is included for the vector usage below.
+
+// --- Helper function (move to Grid.h if used elsewhere) ---
+namespace {
+    inline bool isInBounds(int x, int y, unsigned int width, unsigned int height) {
+        return x >= 0 && x < static_cast<int>(width) && y >= 0 && y < static_cast<int>(height);
+    }
+}
 
 
 void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType) {
@@ -18,18 +26,21 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
     for (int x = startX; x <= endX; ++x) {
         for (int y = startY; y <= endY; ++y) {
             // Check that (x, y) is within the grid bounds.
-            if (x >= 0 && x < static_cast<int>(width) && y >= 0 && y < static_cast<int>(height)) {
+            if (isInBounds(x, y, width, height)) {
                 int dx = x - cX;
                 int dy = y - cY;
                 // Compare the squared distance to the squared radius.
                 if (dx * dx + dy * dy < radiusSq) {
-                    grid[index(x, height - 1 - y)] = ElementType::create(cellType);
+                    size_t indexToSet = index(x, height - 1 - y);
+                    grid[indexToSet] = ElementType::create(cellType);
                     activate_chunk(x, height - 1 - y);
+                    changed_chunks.insert(chunk_index(x / chunk_size, (height - 1 - y) / chunk_size));
                 }
             }
         }
     }
-    updateColorBuffer();
+    updateColorBuffer(changed_chunks);
+    changed_chunks.clear(); // clear changed chunks so it can be repopulated
 }
 
 
@@ -54,8 +65,10 @@ void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_act
 
 Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     : width(w), height(h), chunk_size(chunk_sz),
-      active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
-      rng(std::random_device{}())
+      active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_size), false),
+      rng(std::random_device{}()),
+      processed(w * h, false),
+      changed_chunks() // Initialize member variables in constructor initializer list!
 {
     ElementType::initialize();
     grid.resize(width * height);
@@ -73,6 +86,7 @@ void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
         size_t idx = index(x, inverted_y);
         grid[idx] = ElementType::create(type);
         activate_chunk(x, inverted_y);
+        changed_chunks.insert(chunk_index(x / chunk_size, inverted_y / chunk_size));
     }
 }
 
@@ -80,25 +94,50 @@ size_t Grid::get_grid_size() {
     return grid.size();
 }
 
-void Grid::updateColorBuffer() {
-    // Iterate over the grid and update the RGBA buffer.
-    for (size_t i = 0; i < grid.size(); ++i) {
-        auto col = grid[i]->getColor();  // std::array<int, 4>
-        size_t base = i * 4;
-        colorBuffer[base]     = static_cast<unsigned char>(col[0]);
-        colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
-        colorBuffer[base + 2] = static_cast<unsigned char>(col[2]);
-        colorBuffer[base + 3] = static_cast<unsigned char>(col[3]);
+void Grid::updateColorBuffer(const std::unordered_set<size_t>& chunks) {
+    for (auto chunk_idx : chunks) {
+        size_t chunk_x = chunk_idx % ((width + chunk_size - 1) / chunk_size);
+        size_t chunk_y = chunk_idx / ((width + chunk_size - 1) / chunk_size);
+
+        size_t start_x = chunk_x * chunk_size;
+        size_t start_y = chunk_y * chunk_size;
+        size_t end_x = std::min(start_x + chunk_size, width);
+        size_t end_y = std::min(start_y + chunk_size, height);
+
+        for (size_t y = start_y; y < end_y; ++y) {
+            for (size_t x = start_x; x < end_x; ++x) {
+                size_t i = index(x, y);
+                auto col = grid[i]->getColor();
+                size_t base = i * 4;
+                colorBuffer[base]     = static_cast<unsigned char>(col[0]);
+                colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
+                colorBuffer[base + 2] = static_cast<unsigned char>(col[2]);
+                colorBuffer[base + 3] = static_cast<unsigned char>(col[3]);
+            }
+        }
     }
+}
+
+void Grid::updateColorBuffer() {
+    std::unordered_set<size_t> allChunks;
+    size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
+    size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
+    for (size_t y = 0; y < chunk_count_y; ++y) {
+        for (size_t x = 0; x < chunk_count_x; ++x) {
+            allChunks.insert(chunk_index(x, y));
+        }
+    }
+    updateColorBuffer(allChunks);
 }
 
 void Grid::step() {
     // Snapshot the current active_chunks state.
     std::vector<bool> prevActive = active_chunks;
     std::fill(active_chunks.begin(), active_chunks.end(), false);
+    changed_chunks.clear();
 
     // Create a processed array to track which elements have been updated.
-    std::vector<bool> processed(width * height, false);
+    std::fill(processed.begin(), processed.end(), false);
 
     // Process each row
     for (size_t y = 0; y < height; ++y) {
@@ -119,13 +158,15 @@ void Grid::step() {
                     static_cast<int>(x),
                     static_cast<int>(y),
                     *this,
-                    [this, &moved, &processed](int fromX, int fromY, int toX, int toY) {
+                    [this, &moved, x, y, chunk_idx](int fromX, int fromY, int toX, int toY) { // Corrected lambda capture
                         size_t fromIdx = index(fromX, fromY);
                         size_t toIdx = index(toX, toY);
 
-                        std::swap(grid[fromIdx], grid[toIdx]);
-                        processed[toIdx] = true; // Mark destination as processed
+                        std::swap(this->grid[fromIdx], this->grid[toIdx]); // Access grid through this pointer
+                        this->processed[toIdx] = true; // Mark destination as processed
                         moved = true;
+                        this->changed_chunks.insert(chunk_idx);
+                        this->changed_chunks.insert(chunk_index(toX / chunk_size, toY / chunk_size));
                     },
                     static_cast<int>(y)
                 );
@@ -137,7 +178,7 @@ void Grid::step() {
         }
     }
 
-    updateColorBuffer();
+    updateColorBuffer(changed_chunks);
 }
 
 

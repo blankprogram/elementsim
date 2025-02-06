@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import createModule from "../../backend/Grid.js";
 
-const GRID_WIDTH = 200;
-const GRID_HEIGHT = 200;
+const GRID_WIDTH = 300;
+const GRID_HEIGHT = 300;
 const CHUNK_SIZE = 10;
 const MIN_BRUSH_SIZE = 1;
 const MAX_BRUSH_SIZE = 20;
