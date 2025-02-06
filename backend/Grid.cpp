@@ -22,8 +22,13 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
     int endX = std::min(static_cast<int>(width - 1), cX + r);
     int endY = std::min(static_cast<int>(height - 1), cY + r);
 
-    std::unordered_set<size_t> affectedChunks;
+    std::vector<size_t> affectedChunks;
+    affectedChunks.reserve((endX - startX) * (endY - startY) / (chunk_size * chunk_size));
 
+    // Create element once outside loop to avoid repeated heap allocations
+    std::unique_ptr<Element> newElement = ElementType::create(cellType);
+
+    // Iterate efficiently within calculated bounds
     for (int y = startY; y <= endY; ++y) {
         for (int x = startX; x <= endX; ++x) {
             int dx = x - cX;
@@ -31,15 +36,27 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
 
             if (dx * dx + dy * dy <= radiusSq) {
                 size_t idx = index(x, height - 1 - y);
-                grid[idx] = ElementType::create(cellType);
-                activate_chunk(x, height - 1 - y);
-                affectedChunks.insert(chunk_index(x / chunk_size, (height - 1 - y) / chunk_size));
+
+                // Reuse allocated object instead of calling create() multiple times
+                grid[idx] = std::make_unique<Element>(*newElement);
+
+                // Only activate a chunk once
+                size_t chunkIdx = chunk_index(x / chunk_size, (height - 1 - y) / chunk_size);
+                if (std::find(affectedChunks.begin(), affectedChunks.end(), chunkIdx) == affectedChunks.end()) {
+                    affectedChunks.push_back(chunkIdx);
+                }
             }
         }
     }
 
+    // Batch activate chunks
+    for (size_t chunk : affectedChunks) {
+        active_chunks[chunk] = true;
+    }
+
     updateColorBuffer(affectedChunks);
 }
+
 
 
 
