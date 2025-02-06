@@ -7,7 +7,12 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-wasm-bindgen = "0.2.84"
+
+wasm-bindgen = { version = "0.2.84", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.4"
+
 js-sys = "0.3.77"
 rand = "0.8.5" # Remove "js" feature
 getrandom = { version = "0.2.8", features = ["js"] } # Ensure compatibility with WebAssembly
@@ -15,6 +20,7 @@ web-sys = { version = "0.3", features = ["console"] }
 [profile.release]
 opt-level = 3
 lto = true
+
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O4"]
