@@ -7,6 +7,11 @@
 #include <string>
 #include "Element/Element.h"
 #include "Element/ElementType.h"
+#include <thread>
+#include <algorithm>
+#include <cmath>
+#include <emscripten/emscripten.h>
+#include <emscripten/threading.h>
 
 class Grid {
 private:

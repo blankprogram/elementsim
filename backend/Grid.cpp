@@ -95,61 +95,52 @@ void Grid::updateColorBuffer() {
 void Grid::step() {
     // Snapshot the current active_chunks state.
     std::vector<bool> prevActive = active_chunks;
-    // Clear the active_chunks vector in place.
     std::fill(active_chunks.begin(), active_chunks.end(), false);
-    
-    // Process each cell.
+
+    // Create a processed array to track which elements have been updated.
+    std::vector<bool> processed(width * height, false);
+
+    // Process each row
     for (size_t y = 0; y < height; ++y) {
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
-        if (reverse) {
-            for (size_t x = width; x-- > 0;) {
-                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (prevActive[chunk_idx]) {
-                    bool moved = false;
-                    // Process the cell.
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                        // Here, the behavior function is responsible for updating active_chunks.
-                    );
-                    // If the cell moved or is a gas cell (which should always remain active),
-                    // mark its chunk (and neighbors) active.
-                    if (moved ) {
-                        mark_neighbors_active(x, y, active_chunks);
-                    }
-                }
-            }
-        } else {
-            for (size_t x = 0; x < width; ++x) {
-                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (prevActive[chunk_idx]) {
-                    bool moved = false;
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                    );
-                    if (moved) {
-                        mark_neighbors_active(x, y, active_chunks);
-                    }
+        size_t start = reverse ? width - 1 : 0;
+        size_t end = reverse ? static_cast<size_t>(-1) : width;
+        int step = reverse ? -1 : 1;
+
+        for (size_t x = start; x != end; x += step) {
+            size_t idx = index(x, y);
+            if (processed[idx]) continue; // Skip already processed elements
+
+            size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
+            if (prevActive[chunk_idx]) {
+                bool moved = false;
+
+                grid[idx]->behavior(
+                    static_cast<int>(x),
+                    static_cast<int>(y),
+                    *this,
+                    [this, &moved, &processed](int fromX, int fromY, int toX, int toY) {
+                        size_t fromIdx = index(fromX, fromY);
+                        size_t toIdx = index(toX, toY);
+
+                        std::swap(grid[fromIdx], grid[toIdx]);
+                        processed[toIdx] = true; // Mark destination as processed
+                        moved = true;
+                    },
+                    static_cast<int>(y)
+                );
+
+                if (moved) {
+                    mark_neighbors_active(x, y, active_chunks);
                 }
             }
         }
     }
-    // Now active_chunks has been updated in place—no need to move a temporary vector.
+
     updateColorBuffer();
 }
+
+
 
 
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {

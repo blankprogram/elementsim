@@ -44,7 +44,9 @@
         "streambuf": "cpp",
         "typeinfo": "cpp",
         "map": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "iostream": "cpp",
+        "istream": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
