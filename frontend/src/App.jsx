@@ -17,6 +17,7 @@ const App = () => {
   const mousePosRef = useRef({ x: -1, y: -1 });
   const showChunksRef = useRef(false);
   const chunkBuffersRef = useRef([]);
+  
 
   // Canvas and timing refs
   const canvasRef = useRef(null);
@@ -26,6 +27,9 @@ const App = () => {
   // React state
   const [brushSize, setBrushSize] = useState(1);
   const [frameTime, setFrameTime] = useState(0);
+  const [minFps, setMinFps] = useState(Infinity);
+  const minFpsRef = useRef(Infinity);
+
   const [cellTypes, setCellTypes] = useState([]);
   const [selectedElement, setSelectedElement] = useState("Sand");
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
@@ -345,14 +349,14 @@ const App = () => {
     } = resources;
     const targetFrameDuration = 1000 / TARGET_FPS;
     let lastFrameTime = performance.now();
-
+  
     const renderFrame = () => {
       const now = performance.now();
       const elapsed = now - lastFrameTime;
-
+  
       if (elapsed >= targetFrameDuration) {
         lastFrameTime = now;
-
+  
         // Step simulation
         if (simulationStateRef.current === "running") {
           game.step();
@@ -360,25 +364,32 @@ const App = () => {
           game.step();
           simulationStateRef.current = "paused";
         }
-
-        // Render all layers
+  
         renderGrid(gl, gridProgram, gridBuffer, gridTexture, game);
         renderChunks(gl, chunkOverlayProgram, game);
         renderBrush(gl, brushProgram);
-
-        // Update FPS display (smoothing)
+  
         frameTimes.current.push(elapsed);
         if (frameTimes.current.length > smoothingWindow) {
           frameTimes.current.shift();
         }
         const avgFrameTime =
           frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
+        
         setFrameTime(avgFrameTime);
+  
+        const currentFps = 1000 / avgFrameTime;
+        if (currentFps < minFpsRef.current) {
+          minFpsRef.current = currentFps;
+          setMinFps(minFpsRef.current);
+        }
       }
       requestAnimationFrame(renderFrame);
     };
     renderFrame();
   };
+  
+  
 
   // -------------------- Mouse Events --------------------
 
@@ -566,6 +577,7 @@ const App = () => {
       >
         <div>Selected Element: {selectedElement}</div>
         <div>Fps: {Math.round(1000 / frameTime)}</div>
+        <div>Min Fps: {Math.round(minFps)}</div>
         <div>
           Mouse Position: {`x: ${mousePosRef.current?.x}, y: ${
             GRID_HEIGHT - 1 - (mousePosRef.current?.y ?? 0)
