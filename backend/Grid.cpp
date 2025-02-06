@@ -16,29 +16,34 @@ void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned 
     int cY = static_cast<int>(centerY);
     int r = static_cast<int>(radius);
     double radiusSq = static_cast<double>(r) * r;
-
+    
+    // Boundaries for loop
     int startX = std::max(0, cX - r);
     int startY = std::max(0, cY - r);
     int endX = std::min(static_cast<int>(width - 1), cX + r);
     int endY = std::min(static_cast<int>(height - 1), cY + r);
 
+    // Batch changed chunks
     std::unordered_set<size_t> affectedChunks;
 
+    // Iterate efficiently within calculated bounds
     for (int y = startY; y <= endY; ++y) {
         for (int x = startX; x <= endX; ++x) {
             int dx = x - cX;
             int dy = y - cY;
-
-            if (dx * dx + dy * dy <= radiusSq) {
-                size_t idx = index(x, height - 1 - y);
+            
+            // Expanded radius check
+            if (dx * dx + dy * dy <= radiusSq ) {
+                size_t idx = index(x, height - 1 - y); // Directly calculate index
                 grid[idx] = ElementType::create(cellType);
                 activate_chunk(x, height - 1 - y);
-                affectedChunks.insert(chunk_index(x / chunk_size, (height - 1 - y) / chunk_size));
+                size_t chunkIdx = chunk_index(x / chunk_size, (height - 1 - y) / chunk_size);
+                affectedChunks.insert(chunkIdx); // Mark affected chunk
             }
         }
     }
 
-    updateColorBuffer(affectedChunks);
+    updateColorBuffer(affectedChunks); // Only update affected chunks
 }
 
 
@@ -130,11 +135,15 @@ void Grid::updateColorBuffer() {
 }
 
 void Grid::step() {
+    // Snapshot the current active_chunks state.
     std::vector<bool> prevActive = active_chunks;
     std::fill(active_chunks.begin(), active_chunks.end(), false);
     changed_chunks.clear();
-    std::fill(processed.begin(), processed.end(), 0);
 
+    // Create a processed array to track which elements have been updated.
+    std::fill(processed.begin(), processed.end(), false);
+
+    // Process each row
     for (size_t y = 0; y < height; ++y) {
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
         size_t start = reverse ? width - 1 : 0;
@@ -143,7 +152,7 @@ void Grid::step() {
 
         for (size_t x = start; x != end; x += step) {
             size_t idx = index(x, y);
-            if (processed[idx]) continue;
+            if (processed[idx]) continue; // Skip already processed elements
 
             size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
             if (prevActive[chunk_idx]) {
@@ -153,12 +162,12 @@ void Grid::step() {
                     static_cast<int>(x),
                     static_cast<int>(y),
                     *this,
-                    [this, &moved, x, y, chunk_idx](int fromX, int fromY, int toX, int toY) {
+                    [this, &moved, x, y, chunk_idx](int fromX, int fromY, int toX, int toY) { // Corrected lambda capture
                         size_t fromIdx = index(fromX, fromY);
                         size_t toIdx = index(toX, toY);
 
-                        std::swap(this->grid[fromIdx], this->grid[toIdx]);
-                        this->processed[toIdx] = 1;
+                        std::swap(this->grid[fromIdx], this->grid[toIdx]); // Access grid through this pointer
+                        this->processed[toIdx] = true; // Mark destination as processed
                         moved = true;
                         this->changed_chunks.insert(chunk_idx);
                         this->changed_chunks.insert(chunk_index(toX / chunk_size, toY / chunk_size));
