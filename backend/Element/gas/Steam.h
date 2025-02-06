@@ -6,7 +6,7 @@
 
 class Steam : public Gas {
 public:
-    Helium() {
+    Steam() {
         color = ColorConstants::getColor("STEAM");
     }
 };
