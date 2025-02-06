@@ -12,19 +12,19 @@
 #include <cmath>
 #include <emscripten/emscripten.h>
 #include <emscripten/threading.h>
-#include <unordered_set> // Include for unordered_set
+#include <unordered_set>
 
 class Grid {
 private:
     size_t width;
     size_t height;
     size_t chunk_size;
-    std::vector<std::unique_ptr<Element>> grid;  // simulation cells
-    std::vector<bool> active_chunks;             // per-chunk active flags
+    std::vector<std::unique_ptr<Element>> grid;  // Simulation cells
+    std::vector<bool> active_chunks;             // Per-chunk active flags
     std::mt19937 rng;
+    std::vector<uint8_t> processed;              // Efficient processed tracking
     std::vector<unsigned char> colorBuffer;      // RGBA buffer
-    std::vector<bool> processed; // Reusable processed array
-    std::unordered_set<size_t> changed_chunks; // Chunks to update
+    std::unordered_set<size_t> changed_chunks;   // Tracks changed chunks
 
     // --- Inline helper functions ---
     inline size_t index(size_t x, size_t y) const { return y * width + x; }
@@ -32,14 +32,14 @@ private:
         size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
         return chunk_y * chunk_count_x + chunk_x;
     }
-    
+
     // Activate a chunk by coordinate.
     inline void activate_chunk(size_t x, size_t y) {
         size_t chunk_x = x / chunk_size;
         size_t chunk_y = y / chunk_size;
         active_chunks[chunk_index(chunk_x, chunk_y)] = true;
     }
-    
+
     // Update neighbor chunks.
     void mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_active_chunks);
 
@@ -58,13 +58,9 @@ public:
     Element* get(unsigned int x, unsigned int y);
     void spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType);
 
-    // Expose a public version of markChunkActive.
-    void markChunkActive(unsigned int x, unsigned int y) {
-        activate_chunk(x, y);
-    }
+    void markChunkActive(unsigned int x, unsigned int y) { activate_chunk(x, y); }
     std::vector<unsigned int> get_active_chunk_indices();
-    
-    // Accessors for the color buffer.
+
     uintptr_t getColorBufferPtr() const { return reinterpret_cast<uintptr_t>(colorBuffer.data()); }
     size_t getColorBufferSize() const { return colorBuffer.size(); }
 };
