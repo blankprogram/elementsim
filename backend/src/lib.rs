@@ -9,8 +9,6 @@ use rand::Rng;
 
 
 
-
-#[wasm_bindgen]
 #[wasm_bindgen]
 pub struct SandGame {
     width: usize,

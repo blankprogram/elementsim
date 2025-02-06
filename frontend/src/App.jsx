@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import init, { SandGame } from "../../backend/pkg";
 
-const GRID_WIDTH = 200;
-const GRID_HEIGHT = 200;
+const GRID_WIDTH = 400;
+const GRID_HEIGHT = 300;
 const CHUNK_SIZE = 10;
 const MIN_BRUSH_SIZE = 0;
 const MAX_BRUSH_SIZE = 20;
