@@ -12,36 +12,40 @@ namespace {
 
 
 void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType) {
-    // Precompute integer values and the squared radius.
     int cX = static_cast<int>(centerX);
     int cY = static_cast<int>(centerY);
     int r = static_cast<int>(radius);
-    int startX = cX - r;
-    int startY = cY - r;
-    int endX   = cX + r;
-    int endY   = cY + r;
     double radiusSq = static_cast<double>(r) * r;
+    
+    // Boundaries for loop
+    int startX = std::max(0, cX - r);
+    int startY = std::max(0, cY - r);
+    int endX = std::min(static_cast<int>(width - 1), cX + r);
+    int endY = std::min(static_cast<int>(height - 1), cY + r);
 
-    // Loop over the bounding square of the circle.
-    for (int x = startX; x <= endX; ++x) {
-        for (int y = startY; y <= endY; ++y) {
-            // Check that (x, y) is within the grid bounds.
-            if (isInBounds(x, y, width, height)) {
-                int dx = x - cX;
-                int dy = y - cY;
-                // Compare the squared distance to the squared radius.
-                if (dx * dx + dy * dy < radiusSq) {
-                    size_t indexToSet = index(x, height - 1 - y);
-                    grid[indexToSet] = ElementType::create(cellType);
-                    activate_chunk(x, height - 1 - y);
-                    changed_chunks.insert(chunk_index(x / chunk_size, (height - 1 - y) / chunk_size));
-                }
+    // Batch changed chunks
+    std::unordered_set<size_t> affectedChunks;
+
+    // Iterate efficiently within calculated bounds
+    for (int y = startY; y <= endY; ++y) {
+        for (int x = startX; x <= endX; ++x) {
+            int dx = x - cX;
+            int dy = y - cY;
+            
+            // Expanded radius check
+            if (dx * dx + dy * dy <= radiusSq ) {
+                size_t idx = index(x, height - 1 - y); // Directly calculate index
+                grid[idx] = ElementType::create(cellType);
+                activate_chunk(x, height - 1 - y);
+                size_t chunkIdx = chunk_index(x / chunk_size, (height - 1 - y) / chunk_size);
+                affectedChunks.insert(chunkIdx); // Mark affected chunk
             }
         }
     }
-    updateColorBuffer(changed_chunks);
-    changed_chunks.clear(); // clear changed chunks so it can be repopulated
+
+    updateColorBuffer(affectedChunks); // Only update affected chunks
 }
+
 
 
 

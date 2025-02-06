@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import createModule from "../../backend/Grid.js";
 
-const GRID_WIDTH = 300;
-const GRID_HEIGHT = 300;
+const GRID_WIDTH = 200;
+const GRID_HEIGHT = 200;
 const CHUNK_SIZE = 10;
-const MIN_BRUSH_SIZE = 1;
+const MIN_BRUSH_SIZE = 0;
 const MAX_BRUSH_SIZE = 20;
 const TARGET_FPS = 60;
 
@@ -13,7 +13,7 @@ const App = () => {
   const moduleRef = useRef(null);
   const simulationStateRef = useRef("running");
   const selectedElementRef = useRef("Sand");
-  const brushSizeRef = useRef(1);
+  const brushSizeRef = useRef(0);
   const mousePosRef = useRef({ x: -1, y: -1 });
   const showChunksRef = useRef(false);
   const chunkBuffersRef = useRef([]);
@@ -25,7 +25,7 @@ const App = () => {
   const smoothingWindow = 10;
 
   // React state
-  const [brushSize, setBrushSize] = useState(1);
+  const [brushSize, setBrushSize] = useState(0);
   const [frameTime, setFrameTime] = useState(0);
   const [minFps, setMinFps] = useState(Infinity);
   const minFpsRef = useRef(Infinity);
@@ -441,7 +441,7 @@ const App = () => {
       setBrushSize((prevSize) => {
         const newSize = Math.max(
           MIN_BRUSH_SIZE,
-          Math.min(MAX_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 2 : -2))
+          Math.min(MAX_BRUSH_SIZE, prevSize + (e.deltaY < 0 ? 1 : -1))
         );
         return newSize;
       });
