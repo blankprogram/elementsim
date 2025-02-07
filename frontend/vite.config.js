@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     fs: {
-      allow: ['..'], // Allow accessing files in parent directories (e.g., backend/pkg)
+      allow: ['..'], 
     },
   },
 });

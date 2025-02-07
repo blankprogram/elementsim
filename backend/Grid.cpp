@@ -1,36 +1,63 @@
 #include "Grid.h"
 #include <algorithm>
 #include <cmath>
+#include <vector> // Ensure this is included for the vector usage below.
+
+// --- Helper function (move to Grid.h if used elsewhere) ---
+namespace {
+    inline bool isInBounds(int x, int y, unsigned int width, unsigned int height) {
+        return x >= 0 && x < static_cast<int>(width) && y >= 0 && y < static_cast<int>(height);
+    }
+}
 
 
 void Grid::spawn_in_radius(unsigned int centerX, unsigned int centerY, unsigned int radius, const std::string& cellType) {
-    // Precompute integer values and the squared radius.
     int cX = static_cast<int>(centerX);
     int cY = static_cast<int>(centerY);
     int r = static_cast<int>(radius);
-    int startX = cX - r;
-    int startY = cY - r;
-    int endX   = cX + r;
-    int endY   = cY + r;
     double radiusSq = static_cast<double>(r) * r;
 
-    // Loop over the bounding square of the circle.
-    for (int x = startX; x <= endX; ++x) {
-        for (int y = startY; y <= endY; ++y) {
-            // Check that (x, y) is within the grid bounds.
-            if (x >= 0 && x < static_cast<int>(width) && y >= 0 && y < static_cast<int>(height)) {
-                int dx = x - cX;
-                int dy = y - cY;
-                // Compare the squared distance to the squared radius.
-                if (dx * dx + dy * dy <= radiusSq) {
-                    grid[index(x, height - 1 - y)] = ElementType::create(cellType);
-                    activate_chunk(x, height - 1 - y);
+    int startX = std::max(0, cX - r);
+    int startY = std::max(0, cY - r);
+    int endX = std::min(static_cast<int>(width - 1), cX + r);
+    int endY = std::min(static_cast<int>(height - 1), cY + r);
+
+    std::vector<size_t> affectedChunks;
+    affectedChunks.reserve((endX - startX) * (endY - startY) / (chunk_size * chunk_size));
+
+    // Create element once outside loop to avoid repeated heap allocations
+    std::unique_ptr<Element> newElement = ElementType::create(cellType);
+
+    // Iterate efficiently within calculated bounds
+    for (int y = startY; y <= endY; ++y) {
+        for (int x = startX; x <= endX; ++x) {
+            int dx = x - cX;
+            int dy = y - cY;
+
+            if (dx * dx + dy * dy <= radiusSq) {
+                size_t idx = index(x, height - 1 - y);
+
+                // Reuse allocated object instead of calling create() multiple times
+                grid[idx] = std::make_unique<Element>(*newElement);
+
+                // Only activate a chunk once
+                size_t chunkIdx = chunk_index(x / chunk_size, (height - 1 - y) / chunk_size);
+                if (std::find(affectedChunks.begin(), affectedChunks.end(), chunkIdx) == affectedChunks.end()) {
+                    affectedChunks.push_back(chunkIdx);
                 }
             }
         }
     }
-    updateColorBuffer();
+
+    // Batch activate chunks
+    for (size_t chunk : affectedChunks) {
+        active_chunks[chunk] = true;
+    }
+
+    updateColorBuffer(affectedChunks);
 }
+
+
 
 
 
@@ -54,8 +81,10 @@ void Grid::mark_neighbors_active(size_t x, size_t y, std::vector<bool>& next_act
 
 Grid::Grid(unsigned int w, unsigned int h, unsigned int chunk_sz)
     : width(w), height(h), chunk_size(chunk_sz),
-      active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_sz), false),
-      rng(std::random_device{}())
+      active_chunks(((w + chunk_sz - 1) / chunk_sz) * ((h + chunk_sz - 1) / chunk_size), false),
+      rng(std::random_device{}()),
+      processed(w * h, false),
+      changed_chunks() // Initialize member variables in constructor initializer list!
 {
     ElementType::initialize();
     grid.resize(width * height);
@@ -73,6 +102,7 @@ void Grid::set_cell(unsigned int x, unsigned int y, const std::string& type) {
         size_t idx = index(x, inverted_y);
         grid[idx] = ElementType::create(type);
         activate_chunk(x, inverted_y);
+        changed_chunks.insert(chunk_index(x / chunk_size, inverted_y / chunk_size));
     }
 }
 
@@ -80,71 +110,91 @@ size_t Grid::get_grid_size() {
     return grid.size();
 }
 
-void Grid::updateColorBuffer() {
-    // Iterate over the grid and update the RGBA buffer.
-    for (size_t i = 0; i < grid.size(); ++i) {
-        auto col = grid[i]->getColor();  // std::array<int, 4>
-        size_t base = i * 4;
-        colorBuffer[base]     = static_cast<unsigned char>(col[0]);
-        colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
-        colorBuffer[base + 2] = static_cast<unsigned char>(col[2]);
-        colorBuffer[base + 3] = static_cast<unsigned char>(col[3]);
+void Grid::updateColorBuffer(const std::unordered_set<size_t>& chunks) {
+    for (auto chunk_idx : chunks) {
+        size_t chunk_x = chunk_idx % ((width + chunk_size - 1) / chunk_size);
+        size_t chunk_y = chunk_idx / ((width + chunk_size - 1) / chunk_size);
+
+        size_t start_x = chunk_x * chunk_size;
+        size_t start_y = chunk_y * chunk_size;
+        size_t end_x = std::min(start_x + chunk_size, width);
+        size_t end_y = std::min(start_y + chunk_size, height);
+
+        for (size_t y = start_y; y < end_y; ++y) {
+            for (size_t x = start_x; x < end_x; ++x) {
+                size_t i = index(x, y);
+                auto col = grid[i]->getColor();
+                size_t base = i * 4;
+                colorBuffer[base]     = static_cast<unsigned char>(col[0]);
+                colorBuffer[base + 1] = static_cast<unsigned char>(col[1]);
+                colorBuffer[base + 2] = static_cast<unsigned char>(col[2]);
+                colorBuffer[base + 3] = static_cast<unsigned char>(col[3]);
+            }
+        }
     }
 }
 
+void Grid::updateColorBuffer() {
+    std::unordered_set<size_t> allChunks;
+    size_t chunk_count_x = (width + chunk_size - 1) / chunk_size;
+    size_t chunk_count_y = (height + chunk_size - 1) / chunk_size;
+    for (size_t y = 0; y < chunk_count_y; ++y) {
+        for (size_t x = 0; x < chunk_count_x; ++x) {
+            allChunks.insert(chunk_index(x, y));
+        }
+    }
+    updateColorBuffer(allChunks);
+}
+
 void Grid::step() {
-    // Allocate next_active_chunks vector.
-    std::vector<bool> next_active_chunks(active_chunks.size(), false);
-    
-    // Cache width and chunk_size divisions (if possible).
+    std::vector<bool> prevActive = active_chunks;
+    std::fill(active_chunks.begin(), active_chunks.end(), false);
+    changed_chunks.clear();
+    std::fill(processed.begin(), processed.end(), 0);
+
     for (size_t y = 0; y < height; ++y) {
         bool reverse = std::uniform_int_distribution<>(0, 1)(rng);
-        if (reverse) {
-            for (size_t x = width; x-- > 0;) {
-                // Precompute the chunk index.
-                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (active_chunks[chunk_idx]) {
-                    bool moved = false;
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                    );
-                    if (moved) {
-                        mark_neighbors_active(x, y, next_active_chunks);
-                    }
-                }
-            }
-        } else {
-            for (size_t x = 0; x < width; ++x) {
-                size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
-                if (active_chunks[chunk_idx]) {
-                    bool moved = false;
-                    grid[index(x, y)]->behavior(
-                        static_cast<int>(x),
-                        static_cast<int>(y),
-                        *this,
-                        [this, &moved](int fromX, int fromY, int toX, int toY) {
-                            std::swap(grid[index(fromX, fromY)], grid[index(toX, toY)]);
-                            moved = true;
-                        },
-                        static_cast<int>(y)
-                    );
-                    if (moved) {
-                        mark_neighbors_active(x, y, next_active_chunks);
-                    }
+        size_t start = reverse ? width - 1 : 0;
+        size_t end = reverse ? static_cast<size_t>(-1) : width;
+        int step = reverse ? -1 : 1;
+
+        for (size_t x = start; x != end; x += step) {
+            size_t idx = index(x, y);
+            if (processed[idx]) continue;
+
+            size_t chunk_idx = chunk_index(x / chunk_size, y / chunk_size);
+            if (prevActive[chunk_idx]) {
+                bool moved = false;
+
+                grid[idx]->behavior(
+                    static_cast<int>(x),
+                    static_cast<int>(y),
+                    *this,
+                    [this, &moved, x, y, chunk_idx](int fromX, int fromY, int toX, int toY) {
+                        size_t fromIdx = index(fromX, fromY);
+                        size_t toIdx = index(toX, toY);
+
+                        std::swap(this->grid[fromIdx], this->grid[toIdx]);
+                        this->processed[toIdx] = 1;
+                        moved = true;
+                        this->changed_chunks.insert(chunk_idx);
+                        this->changed_chunks.insert(chunk_index(toX / chunk_size, toY / chunk_size));
+                    },
+                    static_cast<int>(y)
+                );
+
+                if (moved) {
+                    mark_neighbors_active(x, y, active_chunks);
                 }
             }
         }
     }
-    active_chunks = std::move(next_active_chunks);
-    updateColorBuffer();
+
+    updateColorBuffer(changed_chunks);
 }
+
+
+
 
 bool Grid::is_chunk_active(unsigned int chunk_x, unsigned int chunk_y) {
     return active_chunks[chunk_index(chunk_x, chunk_y)];

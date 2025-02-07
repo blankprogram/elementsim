@@ -4,35 +4,29 @@
 #include "../Element.h"
 #include "../EmptyCell.h"
 #include <random>
-#include <vector>
 #include <functional>
 
 // Forward-declare Grid.
 class Grid;
 
-struct MovementOption {
-    int dx;
-    int dy;
-    double chance;
-};
-
 class Gas : public Element {
 protected:
+    // Determines the current lateral direction: -1 for left, 1 for right.
     int sidewaysDirection;
-    int dispersalRange;
     std::mt19937 rng;
 public:
     Gas();
-    virtual void behavior(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move, int step) override;
-
-    // Instead of dynamic_cast, we report our type:
+    virtual void behavior(int x, int y, Grid& grid, 
+                          std::function<void(int, int, int, int)> move, int step) override;
     virtual bool isGas() const override { return true; }
     
 protected:
+    // Returns true if the target cell can be moved into.
     bool isMovable(Element* cell);
-    bool attemptMovement(int x, int y, Grid& grid, std::function<void(int, int, int, int)> move);
-    void generateSidewaysOptions(std::vector<MovementOption>& options, int x);
-    bool tryMove(int fromX, int fromY, int toX, int toY, Grid& grid, std::function<void(int, int, int, int)> move);
+    // Tries to move from (fromX, fromY) to (toX, toY) using the provided move function.
+    bool tryMove(int fromX, int fromY, int toX, int toY, Grid& grid,
+                 std::function<void(int, int, int, int)> move);
+    // Reverses the lateral (sideways) direction.
     void reverseDirection();
 };
 
