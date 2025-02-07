@@ -175,6 +175,8 @@ impl SandGame {
                 let (from_x, from_y) = (from % self.width, from / self.width);
                 self.update_pixel(from_x, from_y);
                 self.update_pixel(to_x, to_y);
+
+                
                 return true;
             }
         }
