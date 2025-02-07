@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - rust
+      - rust  # Deploy only when pushing to the "rust" branch
 
 permissions:
   contents: write
@@ -21,15 +21,20 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json  # Point to correct lock file
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd frontend
+          npm install --legacy-peer-deps
 
       - name: Build project
-        run: npm run build
+        run: |
+          cd frontend
+          npm run build
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: dist
+          folder: frontend/dist  # Ensure correct build output path
