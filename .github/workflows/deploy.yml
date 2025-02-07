@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - rust  # Deploy only when pushing to the "rust" branch
+      - rust  # Deploy only when pushing to "rust" branch
 
 permissions:
   contents: write
@@ -21,14 +21,27 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json  # Point to correct lock file
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install Rust (for backend)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install wasm-pack (for WebAssembly)
+        run: cargo install wasm-pack
+
+      - name: Build Backend (WASM)
+        run: |
+          cd backend
+          wasm-pack build --target web --out-dir pkg --out-name index
+
+      - name: Install Frontend Dependencies
         run: |
           cd frontend
           npm install --legacy-peer-deps
 
-      - name: Build project
+      - name: Build Frontend
         run: |
           cd frontend
           npm run build
@@ -37,4 +50,4 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: frontend/dist  # Ensure correct build output path
+          folder: frontend/dist
