@@ -9,8 +9,10 @@ pub enum Cell {
     Sand,
     Water,
     Stone,
+    Wood,
+    Dirt, // ✅ New Dirt Element
     RainbowSand,
-    Steam, // ✅ New Steam (Gas)
+    Steam,
 }
 
 pub struct ElementProperties {
@@ -38,12 +40,13 @@ lazy_static! {
         let mut map = HashMap::new();
 
         map.insert(Cell::Sand, ElementProperties {
-            colors: &[
-                (207, 180, 120),
-                (185, 160, 100),
-                (160, 140, 80),
-            ],
+            colors: &[ (207, 180, 120), (185, 160, 100), (160, 140, 80) ],
             movement_behavior: crate::SandGame::movable_solid_behavior,
+        });
+
+        map.insert(Cell::Dirt, ElementProperties { // ✅ New Dirt Element
+            colors: &[ (133, 94, 66), (110, 78, 54), (90, 63, 45) ], // Rich, earthy brown
+            movement_behavior: crate::SandGame::movable_solid_behavior, // Moves like sand
         });
 
         map.insert(Cell::Water, ElementProperties {
@@ -54,6 +57,11 @@ lazy_static! {
         map.insert(Cell::Stone, ElementProperties {
             colors: &[ (100, 100, 100), (120, 120, 120), (140, 140, 140) ],
             movement_behavior: |_, _, _| false, // ✅ Stone does nothing
+        });
+
+        map.insert(Cell::Wood, ElementProperties {
+            colors: &[ (117, 76, 36), (139, 101, 49), (160, 120, 60) ], // ✅ Improved Wood Colors (more realistic)
+            movement_behavior: |_, _, _| false, // ✅ Wood is solid, doesn't move
         });
 
         map.insert(Cell::RainbowSand, ElementProperties {
@@ -100,7 +108,6 @@ impl GridCell {
         }
     }
 }
-
 
 // ✅ Helper function for Rainbow Sand
 fn next_rainbow_color() -> (u8, u8, u8) {
