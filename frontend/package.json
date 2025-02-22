@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build-rust": "cd ../backend && wasm-pack build --target web --out-dir pkg --out-name index",
+    "build-rust": "cd ../backend && wasm-pack build --release --target web --out-dir pkg --out-name index",
     "dev-frontend": "cd ../frontend && npm run dev",
     "start": "npm run build-rust && npm run dev-frontend"
   },
