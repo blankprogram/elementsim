@@ -1,7 +1,7 @@
 use rand::Rng;
 use crate::SandGame;
 
-const GRAVITY: f32 = 0.05;
+const GRAVITY: f32 = 0.1;
 const MAX_VELOCITY: f32 = 5.0;
 
 impl SandGame {
