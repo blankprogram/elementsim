@@ -419,7 +419,7 @@ const cellTypesRef = useRef({}); // <-- Store latest cellTypes
             game.spawn_in_radius(pos.x, pos.y, brushSizeRef.current, elementIndex);
           } 
         }
-      }, 0);
+      }, 10);
     };
     
     
