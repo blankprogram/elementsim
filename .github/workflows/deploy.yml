@@ -43,7 +43,7 @@ jobs:
       - name: Build Backend (WASM)
         run: |
           cd backend
-          wasm-pack build --release --target web --out-dir pkg index
+          wasm-pack build --release --target web --out-dir pkg 
 
       - name: Install Frontend Dependencies
         run: |
