@@ -1,23 +1,24 @@
 use rand::Rng;
 use crate::SandGame;
 
-const GRAVITY: f32 = 0.05;
-const MAX_VELOCITY: f32 = 5.0;
+const GRAVITY: i32 = 5;
+const MAX_VELOCITY: i32 = 500;
+const SCALE: i32 = 100;
 
 impl SandGame {
+
     fn perform_fall(
         &mut self,
         start_x: usize,
         start_y: usize,
         try_extra: bool,
-    ) -> (bool, usize, f32) {
-        // Get starting cell index.
+    ) -> (bool, usize, i32) {
         let mut current_index = match self.index(start_x, start_y) {
             Some(i) => i,
-            None => return (false, start_y * self.width + start_x, 0.0),
+            None => return (false, start_y * self.width + start_x, 0),
         };
         let start_velocity = self.grid[current_index].velocity;
-        let fall_steps = start_velocity.floor() as usize + 1;
+        let fall_steps = (start_velocity / SCALE) + 1;
         let mut moved = false;
         let mut rng = rand::thread_rng();
 
@@ -37,14 +38,20 @@ impl SandGame {
                 continue;
             }
 
-            if let Some(nindex) = self.try_move_in_directions(current_index, &Self::gen_diagonal_dirs(cx, cy, &mut rng)) {
+            if let Some(nindex) = self.try_move_in_directions(
+                current_index,
+                &Self::gen_diagonal_dirs(cx, cy, &mut rng),
+            ) {
                 moved = true;
                 current_index = nindex;
                 continue;
             }
 
             if try_extra {
-                if let Some(nindex) = self.try_move_in_directions(current_index, &Self::gen_horizontal_dirs(cx, cy, &mut rng)) {
+                if let Some(nindex) = self.try_move_in_directions(
+                    current_index,
+                    &Self::gen_horizontal_dirs(cx, cy, &mut rng),
+                ) {
                     moved = true;
                     current_index = nindex;
                     break;
@@ -70,9 +77,9 @@ impl SandGame {
 
     fn gen_diagonal_dirs(x: usize, y: usize, rng: &mut impl Rng) -> [(usize, usize); 2] {
         if rng.gen_bool(0.5) {
-            [(x.saturating_sub(1), y - 1), (x + 1, y - 1)]
+            [(x.saturating_sub(1), y.saturating_sub(1)), (x + 1, y.saturating_sub(1))]
         } else {
-            [(x + 1, y - 1), (x.saturating_sub(1), y - 1)]
+            [(x + 1, y.saturating_sub(1)), (x.saturating_sub(1), y.saturating_sub(1))]
         }
     }
 
@@ -89,20 +96,20 @@ impl SandGame {
         self.grid[final_index].velocity = if moved {
             (start_velocity + GRAVITY).min(MAX_VELOCITY)
         } else {
-            0.0
+            0
         };
         moved
     }
-
     pub fn liquid_behavior(&mut self, x: usize, y: usize) -> bool {
         let (moved, final_index, start_velocity) = self.perform_fall(x, y, true);
         self.grid[final_index].velocity = if moved {
             (start_velocity + GRAVITY).min(MAX_VELOCITY)
         } else {
-            0.0
+            0
         };
         moved
     }
+
     pub fn gas_behavior(&mut self, x: usize, y: usize) -> bool {
         let index = match self.index(x, y) {
             Some(i) => i,
@@ -113,9 +120,19 @@ impl SandGame {
         }
         let mut rng = rand::thread_rng();
         let dirs = if rng.gen_bool(0.5) {
-            [(x - 1, y + 1), (x + 1, y + 1), (x - 1, y), (x + 1, y)]
+            [
+                (x.saturating_sub(1), y + 1),
+                (x + 1, y + 1),
+                (x.saturating_sub(1), y),
+                (x + 1, y),
+            ]
         } else {
-            [(x + 1, y + 1), (x - 1, y + 1), (x + 1, y), (x - 1, y)]
+            [
+                (x + 1, y + 1),
+                (x.saturating_sub(1), y + 1),
+                (x + 1, y),
+                (x.saturating_sub(1), y),
+            ]
         };
         for &(dx, dy) in &dirs {
             if dx < self.width && dy < self.height && self.try_move(index, dx, dy) {
