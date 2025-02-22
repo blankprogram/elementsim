@@ -94,6 +94,7 @@ pub struct GridCell {
     pub cell_type: Cell,
     pub color: (u8, u8, u8),
     pub last_processed_frame: usize,
+    pub velocity: f32,
 }
 
 impl GridCell {
@@ -113,6 +114,7 @@ impl GridCell {
             cell_type,
             color,
             last_processed_frame: 0,
+            velocity: 1.0,
         }
     }
 }
