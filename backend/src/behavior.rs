@@ -2,7 +2,7 @@ use rand::Rng;
 use crate::SandGame;
 
 const GRAVITY: f32 = 0.2;
-const MAX_VELOCITY: f32 = 5.0;
+const MAX_VELOCITY_Y: f32 = 5.0;
 
 impl SandGame {
     fn perform_fall(
@@ -16,8 +16,8 @@ impl SandGame {
             Some(i) => i,
             None => return (false, start_y * self.width + start_x, 0.0),
         };
-        let start_velocity = self.grid[current_index].velocity;
-        let fall_steps = start_velocity.floor() as usize + 1;
+        let start_velocity_y = self.grid[current_index].velocity_y;
+        let fall_steps = start_velocity_y.floor() as usize + 1;
         let mut moved = false;
         let mut rng = rand::thread_rng();
 
@@ -52,7 +52,7 @@ impl SandGame {
             }
             break;
         }
-        (moved, current_index, start_velocity)
+        (moved, current_index, start_velocity_y)
     }
 
     fn try_move_in_directions(
@@ -85,9 +85,9 @@ impl SandGame {
     }
 
     pub fn movable_solid_behavior(&mut self, x: usize, y: usize) -> bool {
-        let (moved, final_index, start_velocity) = self.perform_fall(x, y, false);
-        self.grid[final_index].velocity = if moved {
-            (start_velocity + GRAVITY).min(MAX_VELOCITY)
+        let (moved, final_index, start_velocity_y) = self.perform_fall(x, y, false);
+        self.grid[final_index].velocity_y = if moved {
+            (start_velocity_y + GRAVITY).min(MAX_VELOCITY_Y)
         } else {
             0.0
         };
@@ -95,9 +95,9 @@ impl SandGame {
     }
 
     pub fn liquid_behavior(&mut self, x: usize, y: usize) -> bool {
-        let (moved, final_index, start_velocity) = self.perform_fall(x, y, true);
-        self.grid[final_index].velocity = if moved {
-            (start_velocity + GRAVITY).min(MAX_VELOCITY)
+        let (moved, final_index, start_velocity_y) = self.perform_fall(x, y, true);
+        self.grid[final_index].velocity_y = if moved {
+            (start_velocity_y + GRAVITY).min(MAX_VELOCITY_Y)
         } else {
             0.0
         };

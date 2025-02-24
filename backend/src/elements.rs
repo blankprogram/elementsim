@@ -37,13 +37,11 @@ static RAINBOW_INDEX: AtomicUsize = AtomicUsize::new(0);
 lazy_static! {
     pub static ref ELEMENT_DEFINITIONS: HashMap<Cell, ElementProperties> = {
         let mut map = HashMap::new();
-
         map.insert(Cell::Sand, ElementProperties {
             colors: &[ (207, 180, 120), (185, 160, 100), (160, 140, 80) ],
             movement_behavior: crate::SandGame::movable_solid_behavior,
             density: 1.0,
         });
-
         map.insert(Cell::Dirt, ElementProperties {
             colors: &[ (133, 94, 66), (110, 78, 54), (90, 63, 45) ],
             movement_behavior: crate::SandGame::movable_solid_behavior,
@@ -54,37 +52,31 @@ lazy_static! {
             movement_behavior: crate::SandGame::liquid_behavior,
             density: 0.8,
         });
-
         map.insert(Cell::Stone, ElementProperties {
             colors: &[ (100, 100, 100), (120, 120, 120), (140, 140, 140) ],
             movement_behavior: |_, _, _| false,
             density: 100.0,
         });
-
         map.insert(Cell::Wood, ElementProperties {
             colors: &[ (117, 76, 36), (139, 101, 49), (160, 120, 60) ],
             movement_behavior: |_, _, _| false,
             density: 100.0,
         });
-
         map.insert(Cell::RainbowSand, ElementProperties {
             colors: &RAINBOW_COLORS,
             movement_behavior: crate::SandGame::movable_solid_behavior,
             density: 1.0,
         });
-
         map.insert(Cell::Steam, ElementProperties {
             colors: &[(200, 200, 200)],
             movement_behavior: crate::SandGame::gas_behavior,
             density: 0.5,
         });
-
         map.insert(Cell::Empty, ElementProperties {
             colors: &[(0, 0, 0)],
             movement_behavior: |_, _, _| false,
             density: 0.0,
         });
-
         map
     };
 }
@@ -94,14 +86,14 @@ pub struct GridCell {
     pub cell_type: Cell,
     pub color: (u8, u8, u8),
     pub last_processed_frame: usize,
-    pub velocity: f32, // new field to track vertical speed
+    pub velocity_y: f32,   // vertical velocity
+    pub velocity_x: f32,   // horizontal velocity
 }
 
 impl GridCell {
     pub fn new(cell_type: Cell) -> Self {
         let props = ELEMENT_DEFINITIONS.get(&cell_type)
             .unwrap_or_else(|| panic!("Missing cell type: {:?}", cell_type));
-
         let color = match cell_type {
             Cell::RainbowSand => next_rainbow_color(),
             _ => {
@@ -109,12 +101,12 @@ impl GridCell {
                 props.colors[rng.gen_range(0..props.colors.len())]
             }
         };
-
         GridCell {
             cell_type,
             color,
             last_processed_frame: 0,
-            velocity: 1.0,
+            velocity_y: 1.0,
+            velocity_x: 0.0,
         }
     }
 }
