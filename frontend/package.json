@@ -7,14 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "build-rust": "cd ../backend && wasm-pack build --release --target web --out-dir pkg --out-name index",
-    "dev-frontend": "cd ../frontend && npm run dev",
-    "start": "npm run build-rust && npm run dev-frontend"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "backend": "file:../backend/pkg",
-    "ElementSim": "file:../backend/pkg",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "vite-plugin-wasm": "^3.4.1"
@@ -29,6 +24,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "glslify": "^7.1.1",
     "vite": "^6.0.5"
   }
 }
