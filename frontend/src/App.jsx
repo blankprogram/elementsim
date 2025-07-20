@@ -5,7 +5,7 @@ import rawDisplay from "./shaders/display.glsl?raw";
 import rawInit from "./shaders/init.glsl?raw";
 import { ELEMENTS } from "./elements.jsx";
 
-const SCALE = 4;
+const SCALE = 2;
 const MS_PER_STEP = 1000 / 120;
 const MAX_BRUSH = 50;
 
@@ -54,7 +54,7 @@ function makeTexture(gl, w, h, trackers) {
   return tex;
 }
 
-function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
+function useSandSimulation(canvasRef, toolRef, brushSizeRef, setFps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -72,7 +72,6 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
       programs: [],
       shaders: [],
     };
-
     const brushRow = new Uint8Array((2 * MAX_BRUSH + 1) * 4);
 
     let simW = 0;
@@ -83,12 +82,32 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
     let vao, vbo, fbo;
     let rafId;
 
+    const pointer = { x: 0, y: 0, down: false };
+    function updatePointer(e) {
+      const r = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - r.left) / r.width) * simW;
+      pointer.y = ((r.bottom - e.clientY) / r.height) * simH;
+    }
+    function onPointerDown(e) {
+      e.preventDefault();
+      pointer.down = true;
+      updatePointer(e);
+    }
+    function onPointerMove(e) {
+      updatePointer(e);
+    }
+    function onPointerUp() {
+      pointer.down = false;
+    }
+    function onPointerLeave() {
+      pointer.down = false;
+    }
+
     const allocateTextures = (w, h) => {
       const oldA = texA,
         oldB = texB;
       const newA = makeTexture(gl, w, h, trackers);
       const newB = makeTexture(gl, w, h, trackers);
-
       [newA, newB].forEach((t) => {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.framebufferTexture2D(
@@ -104,7 +123,6 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
         gl.bindVertexArray(vao);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       });
-
       if (oldA) {
         const cw = Math.min(w, simW),
           ch = Math.min(h, simH);
@@ -118,14 +136,12 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
         );
         gl.bindTexture(gl.TEXTURE_2D, newA);
         gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, cw, ch);
-
         gl.deleteTexture(oldA);
         if (oldB) gl.deleteTexture(oldB);
         trackers.textures = trackers.textures.filter(
           (t) => t !== oldA && t !== oldB,
         );
       }
-
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       texA = newA;
       texB = newB;
@@ -154,17 +170,12 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
 
     const onContextLost = (e) => {
       e.preventDefault();
-      console.warn("WebGL context lost");
       if (rafId) cancelAnimationFrame(rafId);
     };
-    const onContextRestored = () => {
-      console.info("WebGL context restored");
-      initialize();
-    };
+    const onContextRestored = () => initialize();
 
     function initialize() {
       if (rafId) cancelAnimationFrame(rafId);
-
       trackers.textures.forEach((t) => gl.deleteTexture(t));
       trackers.buffers.forEach((b) => gl.deleteBuffer(b));
       trackers.vaos.forEach((v) => gl.deleteVertexArray(v));
@@ -223,28 +234,22 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
       fbo = gl.createFramebuffer();
       trackers.fbos.push(fbo);
 
-      const mouse = { x: 0, y: 0, down: false };
-      canvas.onmousedown = () => (mouse.down = true);
-      canvas.onmouseup = () => (mouse.down = false);
-      canvas.onmousemove = (e) => {
-        const r = canvas.getBoundingClientRect();
-        mouse.x = ((e.clientX - r.left) / r.width) * simW;
-        mouse.y = ((r.bottom - e.clientY) / r.height) * simH;
-      };
-
       handleResize();
-      let last = performance.now(),
-        acc = 0;
+      let last = performance.now();
+      let acc = 0;
+      let fpsSamples = [];
+      let lastFpsUpdate = last;
+
       const OFF = [
         [0, 0],
         [1, 1],
         [0, 1],
         [1, 0],
       ];
-      let phase = 0,
-        frameCount = 0;
+      let phase = 0;
+      let frameCount = 0;
 
-      function step() {
+      const step = () => {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.viewport(0, 0, simW, simH);
         for (let i = 0; i < 4; i++) {
@@ -269,31 +274,45 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         frameCount++;
-      }
+      };
 
-      function render() {
+      const render = () => {
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.useProgram(displayProg);
         gl.uniform2f(uniforms.uResDisplay, simW, simH);
         gl.uniform1i(uniforms.uStateD, 0);
-        gl.uniform2i(uniforms.uMouse, Math.floor(mouse.x), Math.floor(mouse.y));
+        gl.uniform2i(
+          uniforms.uMouse,
+          Math.floor(pointer.x),
+          Math.floor(pointer.y),
+        );
         gl.uniform1i(uniforms.uBrush, brushSizeRef.current);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, curr);
         gl.bindVertexArray(vao);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      }
+      };
 
-      function loop(now) {
+      const loop = (now) => {
         const dt = now - last;
         last = now;
         acc += dt;
-        if (mouse.down) {
+
+        fpsSamples.push(1000 / dt);
+        if (fpsSamples.length > 30) fpsSamples.shift();
+        if (now - lastFpsUpdate > 250) {
+          const avgFps =
+            fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
+          setFps(Math.round(avgFps));
+          lastFpsUpdate = now;
+        }
+
+        if (pointer.down) {
           const elem = ELEMENTS[toolRef.current];
           const alpha = Math.floor(elem.alpha * 255);
           const s = brushSizeRef.current;
-          const cx = Math.floor(mouse.x),
-            cy = Math.floor(mouse.y);
+          const cx = Math.floor(pointer.x),
+            cy = Math.floor(pointer.y);
           while (acc >= MS_PER_STEP) {
             gl.bindTexture(gl.TEXTURE_2D, curr);
             for (let dy = -s; dy <= s; dy++) {
@@ -303,7 +322,6 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
               const xs = Math.max(0, cx - half),
                 xe = Math.min(simW - 1, cx + half);
               const w = xe - xs + 1;
-              if (w <= 0) continue;
               const row = brushRow.subarray(0, w * 4);
               for (let i = 0; i < w; i++) {
                 const o = i * 4,
@@ -336,7 +354,8 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
         }
         render();
         rafId = requestAnimationFrame(loop);
-      }
+      };
+
       rafId = requestAnimationFrame(loop);
     }
 
@@ -344,6 +363,10 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
     canvas.addEventListener("webglcontextlost", onContextLost);
     canvas.addEventListener("webglcontextrestored", onContextRestored);
     canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+    canvas.addEventListener("pointermove", onPointerMove);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointerleave", onPointerLeave);
 
     initialize();
 
@@ -353,7 +376,10 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
       canvas.removeEventListener("wheel", onWheel);
-      canvas.onmousedown = canvas.onmouseup = canvas.onmousemove = null;
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
       trackers.textures.forEach((t) => gl.deleteTexture(t));
       trackers.buffers.forEach((b) => gl.deleteBuffer(b));
       trackers.vaos.forEach((v) => gl.deleteVertexArray(v));
@@ -361,19 +387,21 @@ function useSandSimulation(canvasRef, toolRef, brushSizeRef) {
       trackers.programs.forEach((p) => gl.deleteProgram(p));
       trackers.shaders.forEach((s) => gl.deleteShader(s));
     };
-  }, []);
+  }, [setFps]);
 }
 
 export default function App() {
   const canvasRef = useRef(null);
-  const [tool, setTool] = useState("sand");
+  const [fps, setFps] = useState(0);
+  const [tool, setTool] = useState("sandYellow");
   const toolRef = useRef(tool);
   const brushSize = useRef(2);
 
   useEffect(() => {
     toolRef.current = tool;
   }, [tool]);
-  useSandSimulation(canvasRef, toolRef, brushSize);
+
+  useSandSimulation(canvasRef, toolRef, brushSize, setFps);
 
   return (
     <>
@@ -386,6 +414,23 @@ export default function App() {
           height: "100vh",
         }}
       />
+
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          color: "white",
+          fontFamily: "monospace",
+          fontSize: "14px",
+          padding: "2px 4px",
+          background: "rgba(0, 0, 0, 0.5)",
+          borderRadius: "4px",
+        }}
+      >
+        {fps} FPS {fps >= 60 ? ": )" : fps >= 40 ? ": |" : ": ("}
+      </div>
+
       <div
         style={{
           position: "absolute",

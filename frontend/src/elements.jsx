@@ -34,15 +34,22 @@ export const ELEMENTS = {
     },
   },
 
-  sand: {
-    alpha: 1.0,
+  water: {
+    alpha: 0.5,
+    getColor: () => [30, 144, 255],
+    getAllColors: () => [[30, 144, 255]],
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors());
+    },
+  },
+
+  sandRainbow: {
+    alpha: 0.75,
     getColor: () => {
       const rawHue = (Date.now() >> 3) % 360;
       const STEPS = 24;
-      const STEP_SIZE = 360 / STEPS;
-      const bucket = Math.floor(rawHue / STEP_SIZE);
-      const hue = bucket * STEP_SIZE;
-      return hslToRgb(hue, 0.45, 0.6);
+      const bucket = Math.floor(rawHue / (360 / STEPS));
+      return hslToRgb(bucket * (360 / STEPS), 0.45, 0.6);
     },
     getAllColors: () => {
       const STEPS = 24;
@@ -55,8 +62,27 @@ export const ELEMENTS = {
     },
   },
 
-  stone: {
+  sandYellow: {
     alpha: 0.75,
+    palette: [
+      [247, 233, 163],
+      [240, 225, 150],
+      [255, 245, 175],
+      [230, 210, 140],
+    ],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors(), "135deg");
+    },
+  },
+
+  stone: {
+    alpha: 1.0,
     palette: [
       [70, 70, 75],
       [80, 80, 85],
