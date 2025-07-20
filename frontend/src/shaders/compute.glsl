@@ -2,60 +2,74 @@
 precision highp float;
 
 uniform sampler2D u_state;
+uniform vec2      u_res;
 uniform ivec2     u_offset;
+uniform int       u_frame;
 
-in  vec2  v_uv;
-out vec4  outColor;
+in  vec2 v_uv;
+out vec4 outColor;
 
-const float WALL_A = 0.5;
-float rand(vec2 c) {
-    return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453);
+const float EPS     = 1e-4;
+const float SAND_A  = 1.0;
+const float STONE_A = 0.75;
+
+bool isEmpty(float a) { return a < EPS; }
+bool isSand(float a)  { return abs(a - SAND_A) < EPS; }
+
+void swap(inout vec4 A, inout vec4 B) {
+    vec4 tmp = A;
+    A = B;
+    B = tmp;
 }
-bool isWall(float a) { return abs(a - WALL_A) < 0.01; }
+
+vec4 hash43(vec3 p) {
+    vec4 h = fract(vec4(p, float(u_frame)) * vec4(0.1031, 0.1030, 0.0973, 0.1099));
+    h += dot(h, h.wzxy + 33.33);
+    return fract((h.xxyz + h.yzzw) * h.zywx);
+}
+
+vec4 safeFetch(ivec2 q) {
+    if (q.x < 0 || q.y < 0 || q.x >= int(u_res.x) || q.y >= int(u_res.y)) {
+        return vec4(0.0, 0.0, 0.0, STONE_A);
+    }
+    return texelFetch(u_state, q, 0);
+}
 
 void main() {
-    float RES_F = float({{SIM_RES}});
-    ivec2 p = ivec2(clamp(v_uv * (RES_F - 1e-4), 0.0, RES_F - 1.0));
+    ivec2 p = ivec2(clamp(v_uv * (u_res - 1e-4), vec2(0.0), u_res - 1.0));
+    ivec2 base = p - ((p - u_offset) & ivec2(1, 1));
 
-    if (p.x == 0 || p.y == 0 ||
-        p.x == {{SIM_RES}}-1 || p.y == {{SIM_RES}}-1)
-    {
-        float g = 0.3 + 0.3 * rand(vec2(p));
-        outColor = vec4(vec3(g), WALL_A);
+    vec4 t00 = safeFetch(base + ivec2(0, 0));
+    vec4 t10 = safeFetch(base + ivec2(1, 0));
+    vec4 t01 = safeFetch(base + ivec2(0, 1));
+    vec4 t11 = safeFetch(base + ivec2(1, 1));
+
+    if (t00.a == t10.a && t01.a == t11.a && t00.a == t01.a) {
+        int idx = (p.x - base.x) + 2 * (p.y - base.y);
+        outColor = (idx == 0 ? t00 : idx == 1 ? t10 : idx == 2 ? t01 : t11);
         return;
     }
 
-    ivec2 base = p - ((p - u_offset) & ivec2(1));
+    vec4 r = hash43(vec3(base, float(u_frame)));
 
-    vec4 c00 = texelFetch(u_state, base,               0);
-    vec4 c10 = texelFetch(u_state, base + ivec2(1, 0), 0);
-    vec4 c01 = texelFetch(u_state, base + ivec2(0, 1), 0);
-    vec4 c11 = texelFetch(u_state, base + ivec2(1, 1), 0);
-
-    if (isWall(c00.a) || isWall(c10.a) ||
-        isWall(c01.a) || isWall(c11.a)) {
-        outColor = texelFetch(u_state, p, 0);
-        return;
+    if (isSand(t01.a)) {
+        if (isEmpty(t00.a)) {
+            if (r.x < 0.9) swap(t01, t00);
+        } else if (isEmpty(t10.a) && isEmpty(t11.a)) {
+            if (r.y < 0.5) swap(t01, t10);
+            else swap(t01, t11);
+        }
     }
 
-    int m = int(c00.a > 0.5)
-          + int(c10.a > 0.5) * 2
-          + int(c01.a > 0.5) * 4
-          + int(c11.a > 0.5) * 8;
-
-    vec4 B[4];
-    B[0] = c00;  B[1] = c10;  B[2] = c01;  B[3] = c11;
-
-         if (m == 4)   { B[0] = c01;                       B[2] = vec4(0);       }
-    else if (m == 8)   { B[1] = c11;                       B[3] = vec4(0);       }
-    else if (m == 12)  { B[0] = c01;  B[1] = c11;          B[2] = B[3] = vec4(0);}
-    else if (m == 14)  { B[0] = c01;  B[1] = c10;  B[3] = c11;  B[2] = vec4(0);  }
-    else if (m == 13)  { B[2] = c01;                       B[3] = vec4(0);       }
-    else if (m == 9)   { B[1] = c11;                       B[2] = B[3] = vec4(0);}
-    else if (m == 6)   { B[0] = c01;  B[1] = c10;          B[2] = B[3] = vec4(0);}
-    else if (m == 10)  { B[0] = c11;  B[1] = c10;          B[2] = B[3] = vec4(0);}
-    else if (m == 5)   { B[1] = c00;                       B[2] = B[3] = vec4(0);}
+    if (isSand(t11.a)) {
+        if (isEmpty(t10.a)) {
+            if (r.z < 0.9) swap(t11, t10);
+        } else if (isEmpty(t00.a) && isEmpty(t01.a)) {
+            if (r.w < 0.5) swap(t11, t00);
+            else swap(t11, t01);
+        }
+    }
 
     int idx = (p.x - base.x) + 2 * (p.y - base.y);
-    outColor = B[idx];
+    outColor = (idx == 0 ? t00 : idx == 1 ? t10 : idx == 2 ? t01 : t11);
 }
