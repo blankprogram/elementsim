@@ -10,7 +10,7 @@ in  vec2 v_uv;
 out vec4 outColor;
 
 void main() {
-  ivec2 p = ivec2(clamp(v_uv * (u_res - 1e-4), vec2(0.0), u_res - 1.0));
+  ivec2 p = ivec2(clamp(v_uv * (u_res - 0.01), vec2(0.0), u_res - 1.0));
   int dx = p.x - u_mouse.x;
   int dy = p.y - u_mouse.y;
   int d2 = dx * dx + dy * dy;

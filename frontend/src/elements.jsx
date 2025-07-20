@@ -81,6 +81,42 @@ export const ELEMENTS = {
     },
   },
 
+  wood: {
+    alpha: 0.85,
+    palette: [
+      [139, 69, 19],
+      [160, 82, 45],
+      [101, 67, 33],
+    ],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors());
+    },
+  },
+
+  fire: {
+    alpha: 0.9,
+    palette: [
+      [255, 69, 0],
+      [255, 140, 0],
+      [255, 215, 0],
+    ],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors());
+    },
+  },
+
   stone: {
     alpha: 1.0,
     palette: [

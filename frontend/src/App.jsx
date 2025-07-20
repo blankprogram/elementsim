@@ -5,7 +5,7 @@ import rawDisplay from "./shaders/display.glsl?raw";
 import rawInit from "./shaders/init.glsl?raw";
 import { ELEMENTS } from "./elements.jsx";
 
-const SCALE = 2;
+const SCALE = 4;
 const MS_PER_STEP = 1000 / 120;
 const MAX_BRUSH = 50;
 

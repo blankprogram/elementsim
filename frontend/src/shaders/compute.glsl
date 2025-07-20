@@ -13,12 +13,16 @@ const float EPS     = 0.01;
 const float EMPTY_A = 0.00;
 const float WATER_A = 0.50;
 const float SAND_A  = 0.75;
+const float WOOD_A  = 0.85;
+const float FIRE_A  = 0.90;
 const float STONE_A = 1.00;
 
 bool isEmpty(float a)    { return a < EPS; }
 bool isWater(float a)    { return abs(a - WATER_A) < EPS; }
 bool isStone(float a)    { return abs(a - STONE_A) < EPS; }
 bool isSand(float a)     { return abs(a - SAND_A)  < EPS; }
+bool isWood(float a)     { return abs(a - WOOD_A) < EPS; }
+bool isFire(float a)     { return abs(a - FIRE_A) < EPS; }
 bool isPassable(float a) { return isEmpty(a) || isWater(a); }
 
 void swap(inout vec4 A, inout vec4 B) {
@@ -41,6 +45,22 @@ vec4 safeFetch(ivec2 q) {
         return vec4(0.0,0.0,0.0, STONE_A);
     }
     return texelFetch(u_state, q, 0);
+}
+
+const float SPREAD_CHANCE   = 0.1;
+const float BURNOUT_NEAR    = 0.0005;
+const float BURNOUT_ALONE   = 0.025;
+const int   SPREAD_INTERVAL = 3;
+
+void processFire(inout vec4 cell, float rSpread, float rBurn, bool nearFire, bool nearWood) {
+    if (isFire(cell.a)) {
+        cell.rgb = mix(cell.rgb, vec3(1.0, 0.3 + 0.4 * rSpread, 0.0), 0.5);
+        if (rBurn < (nearWood ? BURNOUT_NEAR : BURNOUT_ALONE))
+            cell = vec4(0.0);
+    } else if (isWood(cell.a) && nearFire) {
+        if ((u_frame % SPREAD_INTERVAL) == 0 && rSpread < SPREAD_CHANCE)
+            cell = vec4(1.0, 0.4, 0.0, FIRE_A);
+    }
 }
 
 void main() {
@@ -72,7 +92,6 @@ void main() {
             else           swap(t01, t11);
         }
     }
-
     if (isSand(t11.a)) {
         if (isPassable(t10.a)) {
             if (r.z < 0.9) swap(t11, t10);
@@ -87,32 +106,22 @@ void main() {
     vec4 tn10 = safeFetch(base + ivec2(1,-1));
 
     bool dropped = false;
-
-
     if (isWater(t01.a)) {
-        if (t00.a < t01.a && r.y < 0.95) {
-            swap(t01, t00);
-            dropped = true;
-        }
+        if (t00.a < t01.a && r.y < 0.95) { swap(t01, t00); dropped = true; }
         else if (t10.a < t01.a && t11.a < t01.a && r.z < 0.3) {
             if (r.x < 0.5) swap(t01, t10);
             else           swap(t01, t11);
             dropped = true;
         }
     }
-
     if (isWater(t11.a)) {
-        if (t10.a < t11.a && r.y < 0.95) {
-            swap(t11, t10);
-            dropped = true;
-        }
+        if (t10.a < t11.a && r.y < 0.95) { swap(t11, t10); dropped = true; }
         else if (t00.a < t11.a && t01.a < t11.a && r.z < 0.3) {
             if (r.x < 0.5) swap(t11, t00);
             else           swap(t11, t01);
             dropped = true;
         }
     }
-
     if (!dropped) {
         if ((isWater(t01.a) && t11.a < WATER_A ||
              t01.a < WATER_A && isWater(t11.a)) &&
@@ -125,6 +134,28 @@ void main() {
             swap(t00, t10);
         }
     }
+
+    vec4 neighbors[8];
+    neighbors[0] = safeFetch(base + ivec2( 0, 1));
+    neighbors[1] = safeFetch(base + ivec2( 1, 0));
+    neighbors[2] = safeFetch(base + ivec2( 0,-1));
+    neighbors[3] = safeFetch(base + ivec2(-1, 0));
+    neighbors[4] = safeFetch(base + ivec2( 1, 1));
+    neighbors[5] = safeFetch(base + ivec2( 1,-1));
+    neighbors[6] = safeFetch(base + ivec2(-1, 1));
+    neighbors[7] = safeFetch(base + ivec2(-1,-1));
+
+    bool nearFire = false;
+    bool nearWood = false;
+    for (int i = 0; i < 8; i++) {
+        if (isFire(neighbors[i].a)) nearFire = true;
+        if (isWood(neighbors[i].a)) nearWood = true;
+    }
+
+    processFire(t00, r.x, r.y, nearFire, nearWood);
+    processFire(t10, r.y, r.z, nearFire, nearWood);
+    processFire(t01, r.z, r.w, nearFire, nearWood);
+    processFire(t11, r.w, r.x, nearFire, nearWood);
 
     int idx = (p.y - base.y) * 2 + (p.x - base.x);
     outColor = (idx == 0) ? t00 :
