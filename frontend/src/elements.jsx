@@ -145,6 +145,42 @@ export const ELEMENTS = {
     },
   },
 
+  lava: {
+    alpha: 0.95,
+    palette: [
+      [207, 16, 32],
+      [255, 69, 0],
+      [255, 100, 20],
+    ],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors(), "135deg");
+    },
+  },
+
+  obsidian: {
+    alpha: 0.75,
+    palette: [
+      [20, 20, 30],
+      [30, 30, 40],
+      [40, 40, 50],
+    ],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors(), "135deg");
+    },
+  },
+
   stone: {
     alpha: 1.0,
     palette: [
