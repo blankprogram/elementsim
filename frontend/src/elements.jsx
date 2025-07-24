@@ -43,6 +43,20 @@ export const ELEMENTS = {
     },
   },
 
+  oil: {
+    alpha: 0.55,
+    palette: [[70, 60, 40]],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors());
+    },
+  },
+
   sandRainbow: {
     alpha: 0.75,
     getColor: () => {
