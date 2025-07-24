@@ -34,6 +34,20 @@ export const ELEMENTS = {
     },
   },
 
+  steam: {
+    alpha: 0.35, // Lighter alpha to make steam look faint
+    palette: [[204, 204, 204]],
+    getColor() {
+      return this.palette[Math.floor(Math.random() * this.palette.length)];
+    },
+    getAllColors() {
+      return this.palette;
+    },
+    getPreviewGradient() {
+      return colorsToGradient(this.getAllColors());
+    },
+  },
+
   water: {
     alpha: 0.5,
     getColor: () => [30, 144, 255],
